@@ -1,0 +1,40 @@
+一个job包含多个stage，一个stage相当于一个operator，一个stage包含多个task，一个stage的task个数可能超过executor的个数。一个stage中的task都跑一样的代码和请求一样的资源。划分stage的算法是提高速度的关键。
+
+一个普通cluster集群有一个master和多个worker，master和每个worker都各自代表一个节点。一个client向master发送一条消息给它要跑的app启动一个driver进程，master调度选择一个worker来跑这个app，一个worker中有多个core和多个executor，一个worker可以启动一个或多个executor，一个executor被分配一到多个core，没被分配到的core就相当于搁置浪费。一个executor中的每个core一次只能执行一个task。每个task执行的结果就是生成了目标rdd的一个partition。这里的core是虚拟的core而不是物理的cpu核，相当于其所在executor的一个工作线程。
+
+task被执行的并发度 = executor数目 * 每个executor的core数目
+
+数据读入阶段，如sc.textFile，输入文件被划分成多少inputsplit就会需要多少初始task，inputsplit-task-partition三者一一对应。map阶段partition数目不变，reduce阶段rdd的聚合会触发shuffle操作，聚合后的rdd的partition数目跟具体操作有关，如repartition操作会聚合成指定分区数。
+
+app(jar包们)和configured dependencies被分配到多个executor里，以备将来运行。SparkContext解析到代码里的Action操作(eg .count)，就create一个job，job调用DAG scheduler，DAG scheduler建立operator DAG和将图划分成多个stage(内含多个task)，并将每个stage传给task scheduler，task scheduler将这些task通过cluster manage进行launch。
+
+DAG中的节点是rdd，边是rdd间的依赖。每个rdd都维护一个metadata来指向一个或多个父节点的指针以及记录有关它与父节点的关系类型。
+
+task是从驱动进程发送给执行进程的工作单元，每个task会在rdd的每个partition上执行。因此如果rdd有10个分区，则一个stage会产生10个一样的task。task的内容和stage完全相同，分区数量为n时，会有n个相同效果的task被分发到执行程序中执行。
+taskNum = jobNum * stageNum * blockNum
+
+1. driver跟master建立连接并申请资源（每个executor需要多少内存，一共多少个core）
+2. master进行资源调度
+3. master跟worker进行rpc通信，让worker启动executor
+4. worker启动executor
+5. executor跟driver通信
+6. DAGScheduler：rdd触发action后，将DAG中的各个rdd划分到不同的stage，构建这些stage之间的父子关系，将每个stage按照partition切分成多个task，以task集合的形式提交给底层的task调度器
+7. TaskScheduler：接受DAGScheduler给每个stage创建的taskSet，将task序列化，按照调度算法将资源分配给task（将task交给spark集群不同节点上的executor运行）
+8. 发送task
+9. executor接收到task，先将task反序列化，然后将task用一个实现了runna接口的实现类包装，将该包装类丢入线程池，然后包装类的run方法会被执行，进而调用task计算逻辑
+
+切分是从最后的rdd开始切分，遇到shuffle就切分stage，递归的出口是某个rdd没有父rdd
+
+强化学习
+s，a，r，q函数，pi函数，policy gradient
+马尔科夫链—应用与所有的强化学习
+蒙特卡洛—应用于求马尔科夫的转移矩阵
+
+图嵌入：保留网络拓扑架构和节点内容信息，将网络顶点表示到低维向量空间，以便后续的图分析任务（分类、聚类）都可通过使用简单的现成机器学习算法执行。
+word2vec：主要有skip-gram和CBOW
+skip-gram：给定一个input word，预测上下文，即预测与这个input word配对的output word为xxx的概率表（xxx1, xxx2...xxxn）
+CBOW：给定上下文，预测input word
+
+deepwalk：以某点为起始点，做随机游走得到点的序列，得到的序列视为句子，用w2v学习，得到该点的表示向量
+
+CI/CD管道：DevOps模式的基础

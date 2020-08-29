@@ -1,0 +1,48 @@
+以交互式终端启动容器
+docker run -it [镜像名字]
+
+以后台形式启动容器（一般情况启动之后立刻中止）
+docker run -d [镜像名字]
+
+以后台形式启动容器，一直循环进行
+docker run -d centos /bin/sh -c "while true; fo echo hello zzyy; sleep 2; done"
+
+查看这个容器状态
+docker logs [容器id] 
+-t 加入时间戳
+-f 不停追加
+--tail 3 只看倒数三行
+
+查看容器内进程
+docker top [容器id]
+
+查看容器内部细节、
+docker inspect [容器id]
+
+容器停止、退出
+exit
+容器不停止、退出
+ctrl+P+Q
+
+进入正在运行的容器并以命令行交互
+docker exec -it 容器id bashShell
+exec——在容器中打开新终端，并且可以启动新进程（进去做可以，进去之后拿结果再直接返回给外面做也可以）
+重新进入 docker attach 容器id
+attach——直接进入容器启动命令的终端，不会启动新进程
+
+docker kill [容器id]
+
+docker run -it centos 与 docker run -it centos /bin/bash 相等（默认方式是/bin/bash）
+ctrl+P+Q 与 docker attach [容器id] 混合使用
+
+ls -l /tmp 查看/tmp目录下有什么内容
+docker exec -t [容器id] ls -l /temp 不用进入容器内（进入容器内执行，再把结果返回给宿主机）
+docker exec -t [容器id] /bin/bash 进入容器内（其实写不写/bin/bash都行）
+
+从容器拷贝文件到主机
+docker cp 容器id:容器内路径 目的主机路径
+
+例子
+docker ps
+docker attach 容器id
+宿主机：docker cp 容器id:/tmp/yum.log /root 将yum.log拷贝到root路径下

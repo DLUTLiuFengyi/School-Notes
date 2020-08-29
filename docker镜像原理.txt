@@ -1,0 +1,39 @@
+镜像是一种轻量级、可执行的独立软件包，用来打包软件运行环境和基于运行环境开发的软件
+
+Union文件系统：支持对文件系统的修改作为一次提交来一次次提交。是Docker镜像的基础。
+特性：一次同时加载多个文件系统，但从外部看只能看到一个文件系统。
+
+Docker镜像最底层是bootfs，包含bootloader和kernel，内存使用权最后交给kernal
+rootfs在bootfs之上，包含典型linux系统中的/dev等标准目录和文件，是各种不同操作系统的发行版如Ubuntu
+
+rootfs可以很小，只需要包含最基本的命令、工具和程序库，因为底层直接用Host的kernal，自己只需要提供rootfs就行，因此对不同的linux发行版，bootfs基本是一致的，rootfs会有区别，因此不同发行版可以公用bootfs
+
+tomcat的image为什么有400+mb？因为kernal-centos-jdk8-tomcat一层套一层
+
+docker镜像都是只读的
+容器启动时一个新的可写层被加载到镜像顶部，这一层通常称作“容器层”，“容器层”之下都叫“镜像层”
+
+tomcat运行例子
+docker run -it -p 8080:8080 tomcat
+-p 主机端口:docker容器端口
+-P 随机分配端口
+docker对外暴露的服务端口号:docker里面的端口号
+在宿主机用第一个端口号访问
+docker run -it -P tomcat
+docker ps 发现ports那一列对外暴露端口号随机定义成某个值
+
+docker commit 提交容器副本使之成为一个新镜像
+docker commit -m="提交的描述信息" -a="作者" [容器id] 要创建的镜像名字:标签
+例子
+docer exec -it [容器id] /bin/bash
+进行某个操作
+docker commit -a="zzyy" -m="tomcat without docs" [容器id] xxx/mytomcat:1.2
+
+把正在运行容器删光
+docker rm -f $(docker ps -q)
+
+run时不写标签是latest
+docker run -it -p 7777:8080 xxx/mytomcat:1.2
+
+docker run -d -p 6666:8080 tomcat
+依旧可以在宿主机用6666访问tomcat主页，只不过docker界面没有列出一长串信息
