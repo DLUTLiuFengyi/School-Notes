@@ -1,0 +1,14 @@
+docker pull redis:3.2
+
+docker run -p 6370:6379 -v /xxx/myredis/data:/data -v /xxx/myredis/conf/redis.conf:/usr/local/etc/redis/redis.conf -d redis:3.2 redis-server /usr/local/etc/redis/redis.conf --appendonly yes
+redis-server /usr/local/etc/redis/redis.conf 
+--appendonly yes 开启持久化lf（？）
+
+在主机/xxx/myredis/conf/redis.conf目录（这是一个目录）下新建redis.conf文件
+docker里的端口改成不用6379，再映射到容器内
+把redis.conf中的bind绑定ip注释掉，因为容器没有绑定系统说法
+
+docker exec -it [运行着redis的容器id] redis-cli
+
+主机上cd data
+发现有appendonly.aof

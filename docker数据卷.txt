@@ -5,5 +5,20 @@
 Dockerfile添加
 
 直接命令添加
--v volumn
+-v volume
 docker run -it -v /宿主机绝对路径目录:/容器内目录 [镜像名字]
+
+例子
+docker run -it -v /myDataVolume:/dataVolumeContainer centos
+两个文件夹均是命令执行之后自动生成的
+docker inspect [容器id]
+主机在文件夹中新建一个txt，容器中的文件夹也因此生成一个txt
+容器修改这个txt，主机也随之更新
+exit
+主机修改文件夹中内容
+docker start [容器id]
+docker attach [容器id] 重新进到这个容器
+容器停止后主机修改数据依然同步
+
+容器内只读不写（主机可以修改，容器内可以读不能修改）
+docker run -it -v /宿主机绝对路径目录:/容器内目录:ro [镜像名字] 

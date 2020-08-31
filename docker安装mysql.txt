@@ -1,0 +1,25 @@
+docker search mysql
+docker pull mysql:5.6
+
+docker run -p 12345:3306 --name mysql -v /xxx/mysql/conf:/etc/mysql/conf.d -v /xxx/mysql/logs:/logs -v /xxx/mysql/data:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=123456 -d mysql:5.6
+-e MYSQL_ROOT_PASSWORD=123456 初始化root用户密码
+
+docker rm -f [容器id]
+
+docker exec -it [容器id] /bin/bash
+mysql -uroot -p
+123456
+show databases;
+create database db01;
+use db01;
+create table t_book(id int not null primary kry, bookName varchar(20));
+show tables;
+insert into t_book values(1, 'java');
+select * from t_book;
+exit;
+
+外部win10连接容器内mysql
+ifconfig
+
+所有数据库导出到宿主机的all-database.sql
+docker exec [容器id] sh -c ' exec mysqldump --all-databases -uroot -p"123456" ' > /xxx/all-database.sql

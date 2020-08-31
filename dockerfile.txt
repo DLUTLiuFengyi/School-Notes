@@ -1,0 +1,196 @@
+可在Dockefile中使用VOLUME指令给镜像添加一个或多个数据卷
+
+FROM centos
+# 在根目录下新建两个容器卷
+VOLUME ["/dataValumeContainer1", "/dataValumeContainer2"]
+CMD echo "finished, --------success1"
+CMD /bin/bash
+
+大致等价于此命令：（Dockerfile不考虑宿主机）
+docker run -it -v /host1:/dataValumeContainer1 -v /host2:/dataValumeContainer1 centos /bin/bash
+
+运行Dockerfile
+-f 文件，-t 命名空间，. 当前目录，xxx/centos 镜像
+docker build -f /xxx/dockerfile名字 -t xxx/centos .
+实现效果：在xxx/centos基础上添加两个数据卷
+docker run -it xxx/centos
+发现会打印出"finished, --------success1"
+
+这种没有指定宿主机目录的情况，docker会建一个默认的
+docker inspect [容器id] 查看默认目录地址在哪
+
+权限问题
+docker run -it -v /宿主机目录:/容器目录 --previleged=true [镜像名]
+
+数据卷容器：命名的容器挂载数据卷，其他容器通过挂载这个父容器实现数据共享，挂载数据卷的容器称为数据卷容器。
+容器间传递共享 --volumes-from
+
+例子（xxx/centos已有两个数据卷的设置）
+docker run -it --name dc01 xxx/centos
+在1号机里的2文件夹中新建 touch dc01_add.txt
+ctrl+P+Q
+docker run -it --name dc02 --volumes-from dc01 xxx/centos
+在2号机里的2文件夹中也搞一个 touch dc02_add.txt
+docker run -it --name dc03 --volumes-from dc01 xxx/centos
+在3号机里的2文件夹中也搞一个 touch dc03_add.txt
+检查
+docker attach dc01
+删除1号机
+docker rm -f dc01
+docker attach dc02
+文件都在
+新建 touch dc02_update.txt
+docker attach dc03
+发现新建的文件居然在
+结论：容器之间配置信息的传递，数据卷的生命周期一直持续到没有容器使用它为止
+
+--------------------------------------------------------------------------------------------
+
+参考
+maven build 编译jar包
+jar
+java -jar 运行微服务
+
+每条指令都会创建一个新的镜像层，并对镜像进行提交
+
+FROM ubuntu.14.04
+VOLUME /data
+ADD run.sh /
+CMD ["./run.sh"]
+
+以前开发人员交一个war包或一堆war包，让运维工程师去跑微服务，假设有48个微服务就有48个包，要是数量增加呢？
+
+MAINTAINER 镜像维护者姓名和邮箱
+
+RUN 构建镜像过程中执行命令（比如程序中间打印System.ou.println("-----")）
+WORKDIR 指定在创建容器后，终端默认登陆进来的工作目录，一个落脚点
+ENV 构建镜像过程中设置环境变量
+ENV MY_PATH /usr/mytest 这个环境变量可以在后续的任何RUN指令中使用，如同在命令前面指定了环境变量前缀一样，也可以在其他指令中直接使用这些环境变量，如WORKDIR $MY_PATH。
+ADD 把一个文件拷贝进镜像中（ADD是拷贝加解压缩，COPY是只拷贝）
+COPY src dest 源路径到目标路径
+COPY ["src", "dest"] 两种写法都可以
+
+CMD 指定容器启动时要运行的命令
+shell格式：CMD 命令
+exec格式：CMD ["可执行文件", "参数1", "参数2"...]
+还有参数列表格式：CMD ["参数1", "参数2"...]，用于ENTRYPOINT指令之后
+Dockerfile中只有最后一个CMD生效（echo无影响），CMD会被docker run之后的参数替换
+
+ENTRYPOINT 目的与CMD一样，不同是docker run之后其会变成追加
+
+ONBUILD 父镜像“留一手”
+
+---------------------------------------------------------------------------------------
+-q 获取容器id
+docker rm -f $(docker ps -q)
+
+自定义一个centos镜像，登录路径修改且带vim、ifconfig
+cd mydocker
+ll
+vim Dockerfile2
+
+FROM centos
+MAINTAINER xxx<xxx@163.com>
+ENV MYPATH /tmp
+WORKDIR $MYPATH
+RUN yum -y install vim
+RUN yun -y install net-tools
+EXPOSE 80
+CMD echo $MYPATH
+CMD echo "success----------ok"
+CMD /bin/bash
+
+docker build -f /mydocker/Dockerfile2 -t mycentos:1.3 .
+/mydocker/Dockerfile2是绝对路径
+
+docker run -it mycentos:1.3
+
+docker images [镜像名字]
+docker history [镜像id]
+
+--------------------------------------------------------------------------------
+CMD和ENTRYPOINT区别
+
+/mydocker/Dockerfile3
+FROM centos
+RUN yum install -y curl
+CMD ["curl", "-s", "http://ip.cn"]
+
+docker build -f /mydocker/Dockerfile3 -t myip .
+docker run -it myip
+结果和直接执行curl -s http://ip.cn相同
+此处-it加不加都可以因为没有交互
+若使用docker run -it myip -i是会报错的，因为CMD被覆盖成 CMD -i
+
+Dockerfile中改成
+ENTRYPOINT ["curl", "-s", "http://ip.cn"]
+docker run myip2 -i
+就能跑通
+
+--------------------------------------------------------------------------------
+ONBUILD的使用
+
+/mydocker/Dockerfile5
+FROM centos
+RUN yum install -y curl
+ENTRYPOINT ["curl", "-s", "http://ip.cn"]
+ONBUILD RUN echo "father images onbuild ---------- 886"
+
+docker build -f /mydocker/Dockerfile5 -t myip_fa .
+
+/mydocker/Dockerfile6
+FROM myip_fa
+RUN yum install -y curl
+CMD ["curl", "-s", "http://ip.cn"]
+
+docker build -f /mydocker/Dockerfile6 -t myip_son .
+
+----------------------------------------------------------------------------------
+自己做一个tomcat
+
+/xxx/tomcat9
+touch c.txt
+cp /opt/apache-tomcat-9.0.8.tar.gz
+cp /opt/jdk-8u171-linux-x64.tar.gz
+
+/xxx/tomcat9/Dockerfile
+FROM centos
+MAINTAINER xxx<xxx@163.com>
+COPY c.txt /usr/local/cincontainer.txt
+ADD jdk-8u171-linux-x64.tar.gz /usr/local/
+ADD apache-tomcat-9.0.8.tar.gz /usr/local/
+RUN yum -y install vim
+ENV MYPATH /usr/local
+WORKDIR $MYPATH
+ENV JAVA_HOME /usr/local/jdk1.8.0_171
+ENV CLASSPATH $JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+ENV CATALINA_HOME /usr/local/apache-tomcat-9.0.8
+ENV CATALINA_BASE /usr/local/apache-tomcat-9.0.8
+ENV PATH $PATH:$JAVA_HOME/bin:$CATALINA_HOME/lib:$CATALINA_HOME/bin
+EXPOSE 8080
+# ENTRYPOINT ["/usr/local/apache-tomcat-9.0.8/bin/startup.sh"]
+# CMD ["/usr/local/apache-tomcat-9.0.8/bin/startup.sh", "run"]
+CMD /usr/local/apache-tomcat-9.0.8/bin/startup.sh && tail -F /usr/local/apache-tomcat-9.0.8/bin/logs/catalina.out
+
+docker build -t xxxtomcat9 .
+docker run -d -p 9080:8080 --name myt9 -v /xxx/test:/usr/local/apache-tomcat-9.0.8/webapps/test -v /xxx/logs:/usr/local/apache-tomcat-9.0.8/logs --privileged=true xxxtomcat9
+
+docker ps，PORTS显示0.0.0.0:9080->8080/tcp
+
+docker exec [这个容器的id] ls -l
+显示当前目录下包含的文件
+docker exec [这个容器的id] java -version
+显示容器内java版本
+
+宿主机
+cd test (/xxx/tomcat9/test)
+mkdir WEB-INF
+cd WEB-INF
+vim web.xml
+cd ..
+vim a.jsp
+ll
+docker exec [这个容器id] ls -l /usr/local/apache-tomcat-9.0.8/webapps/test
+docker restart [这个容器id]
+localhost:9080/test/a.jsp
+
