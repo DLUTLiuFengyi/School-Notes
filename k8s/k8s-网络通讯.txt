@@ -1,0 +1,32 @@
+k8s假定所有pod都在一个可以直接连通的扁平化网络空间（所有pod都可以通过对方ip“直接”到达，其实底层有一堆转换机制存在），这在GCE中是现成的网络模型。如果是私有云搭建k8s在不同节点的docker容器之间访问要先打通再运行k8s。 
+
+同一个pod内多个容器之间：io。共用pause的网络栈，走这个网络栈的io，通过localhost。
+各pod之间的通讯：overlay network。
+pod与service之间通讯：各节点的iptables规则，新版本用lvs
+
+Flannel：让集群中不同节点主机创建的docker容器具有全集群唯一的虚拟ip地址。且在这些ip地址之间建立一个覆盖网络，通过这个覆盖网络将数据包原封不动地传递到目标容器内。
+
+每个物理机安装一个flanneld守护进程，后者开启一个flannel0强行获取报文，收集docker0转发出来的数据报，docker0分配自己的ip到对应的pod上。
+同一主机不同pod之间：走docker0网桥，因为大家都在同一个网桥之下的不同子网。
+
+那怎么跨主机直接通过ip访问？
+
+A机的1号pod访问B机的2号pod：
+原10.1.15.2/24
+目标10.1.20.3/24
+数据包：网关docker0，flannel0（从etcd中获取路由表记录寻找目的物理主机ip），flanneld（对数据报文进行封装，物理原ip物理目的ip，内层原ip内层目标ip，数据包实体）
+flanneld（截获、拆封），flannel0，docker0
+二次解封，docker0只看到第二次解封的内层原和目标ip
+由此实现跨主机的扁平化网络 
+
+etcd与flannel的调用关系：
+* 存储管理flannel可分配的ip地址段资源
+* 监控etcd中每个pod的实际地址，并在内存中建立维护pod节点路由表（内层ip网段对应哪个物理机ip网段）
+
+pod至service网络，新版的转换模式是lvs
+
+pod到外网：pod向外网发送请求，查找路由表，转发数据包到宿主机的网卡，宿主网卡完成路由选择后，iptable执行masuerade，把原ip更改为宿主网卡的ip，然后向外网服务器发送请求。
+
+外网访问pod：service
+
+真实网络只有节点网络，pod网络和service网络都是虚拟网络
