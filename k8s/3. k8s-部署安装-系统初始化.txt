@@ -1,0 +1,104 @@
+五台物理机，一个master主服务器，两个node工作节点，Harbor，Router
+
+harbor私有hub仓库，提供镜像，提速
+router软路由，使用koolshare
+
+/etc/sysconfig/network-scripts/ifcfg-ens33
+网关需要指定到koolshare的软路由上
+
+设置系统主机名及Host文件的相互解析
+hostnamectl set-hostname k8s-master01
+hostnamectl set-hostname k8s-node01
+hostnamectl set-hostname k8s-node02
+master的vi /etc/hosts
+192.168.66.10 k8s-master01
+...20 ...node01
+...21 ...node02
+拷贝
+scp /etc/hosts root@k8s-node01:/etc/hosts
+scp /etc/hosts root@k8s-node02:/etc/hosts
+
+安装依赖包（三台机）
+yum install -y conntrack ntpdate ntp ipvsadm ipset jq iptables curl sysstat
+libseccomp wget vim net-tools git
+
+设置防火墙iptables并设置空规则（三台机）
+关闭防火墙 && 关闭自启动
+systemctl stop firewalld && systemctl disable firewalld
+安装ip tables的service管理工具 && 启动它 && 设为开机自启动
+&& 清空它的规则 && 保存默认规则
+yum -y install iptables-services && systemctl start iptables && systemctl enable iptables && iptables -F && service iptables save
+
+关闭selinux（三台机）
+关闭swap分区（虚拟内存） && 把虚拟内存永久关闭。原因是k8s安装时会检测swap分区有没有关闭，它认为如果开启虚拟内存的话，容器pod会放到虚拟内存中运行，会大大降低工作效率，所以要求强制去关闭
+swapoff -a && sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+
+关闭selinux
+setenforce 0 && sed -i 's/^SELINUX=.*/SETLINUX=disabled/' /etc/selinux/config
+
+
+调整内核参数，对于k8s（除了必备其他都是优化方案）（三台主机）
+cat > kubernetes.conf <<EOF
+net.bridge.bridge-nf-call-iptables=1 # 必备 开启网桥模式
+net.bridge.bridge-nf-call-ip6tables=1 # 必备 开启网桥模式
+net.ipv4.ip_forward=1
+net.ipv4.tcp_tw_recycle=0
+vm.swappiness=0 # 禁止使用swap空间，只有当系统OOM时才允许使用它
+vm.overcommit_memory=1 # 不检查物理内存是否够用
+vm.panic_on_oom=0 # 开启OOM
+fs.inotify.max_user_instances=8192
+fs.inotify.max_user_watches=1048576
+fs.file-max=52706963
+fs.nr_open=52706963
+net.ipv6.conf.all.disable_ipv6=1 # 必备 关闭ipv6模式
+net.netfilter.nf_conntrack_max=2310720
+EOF
+
+cp kubernetes.conf /etc/sysctrl.d/kubernetes.conf
+手动刷新让设置立马生效
+sysctl -p /etc/sysctl.d/kubernetes.conf
+
+关闭系统不需要服务（三台主机）
+邮件服务
+systemctl stop postfix && systemctl disable postfix
+
+设置日志保存方式 设置rsyslogd和systemd journald（后者更好）（三台主机）
+mkdir /var/log/journal # 持久化保存日志的目录
+mkdir /etc/systemd/journald.conf.d
+cat > /etc/systemd/journald.conf.d/99-prophet.conf <<EOF
+[Journal]
+# 持久化保存到磁盘
+Storage=persistent
+
+# 压缩历史日志
+Compress=yes
+
+SyncIntervalSec=5m
+RateLimitInterval=30s
+RateLimitBurst=1000
+
+# 最大占用空间
+SystemMaxUse=10G
+
+# 单日志文件最大
+SystemMaxFileSize=200M
+
+# 日志保存时间2周
+MaxRetentionSec=2week
+
+# 不将日志转发到syslog（重要，保证所有日志只被journald保存管理，减轻系统压力）
+ForwardToSyslog=no
+EOF
+
+重启journal日志
+systemctl restart systemd-journald
+
+升级系统内核为4.44（centos7自带3.10.x内核存在bug使doker和k8s运行不稳定）（三台）
+rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-3.e17.elrepo.noarch.rpm
+# 安装完成后检查 /boot/grub2/grub.cfg中对应内核menuentry中是否包含initrd16配置，如果没有再安装一次
+yum --enablerepo=elrepo-kernal install -y kernal-lt
+# 设置开机从新内核启动
+grub2-set-default "Centos Linux (4.4.182-1.e17.elrepo.x86_64) 7 (Core)"
+reboot
+查看内核版本
+uname -r
