@@ -70,3 +70,34 @@
 根据远程内容和本地分支名新建本地分支
 
 `git fetch origin 本地分支名:远程分支名`  
+
+
+
+### 本地分支合并到远程分支
+
+基于远程某一个分支自己在本地进行开发，开发之后需要把自己的工作push到远程分支。假设`develop`是远程分支名，`my-branch`是将要合并到`develop`的本地分支。
+
+* #### 本地先链接到中央仓库的develop分支
+
+  `git checkout -b develop origin/develop`
+
+* #### 本地分支基于develop分支
+
+  `git branch my-branch develop`
+
+* #### 合并前，先确保develop分支是最新的
+
+  `git pull origin develop`
+
+* #### 切换到拉到本地的远程分支
+
+  `git checkout develop`
+
+* #### 合并
+
+  `git merge my-branch`
+
+* #### 推到中央仓库
+
+  `git push`
+
