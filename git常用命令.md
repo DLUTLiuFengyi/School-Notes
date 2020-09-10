@@ -42,7 +42,21 @@
 
 ### 版本回滚
 
+#### 方法1
+
 `git revert commit的id`
+`git push -f origin 本地分支名:远程分支名`
+
+#### 方法2
+
+这种方法远程分支不会记录被回滚的分支。
+
+查看各个commit的id和概况
+
+`git reflog`
+
+`git reset --hard commit的id`
+
 `git push -f origin 本地分支名:远程分支名`
 
 
@@ -65,7 +79,7 @@
 
 `git checkout -b 本地分支名 origin/远程分支名`   
 
-#### 方法2
+#### 方法2（有错误）
 
 根据远程内容和本地分支名新建本地分支
 
@@ -101,3 +115,16 @@
 
   `git push`
 
+
+
+### 本地有更新但想撤销
+
+#### 方法1
+
+`git status`   看有哪些文件已经被修改
+
+`git restore 要撤销修改的文件名`
+
+#### 方法2
+
+`git restore .`   全部撤销
