@@ -324,6 +324,8 @@ sudo ufw disable
 
 Initial api-server
 
+**ATENTION: If you want to use flannel, the command below will be sudo kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address=192.168.100.128**
+
 sudo kubeadm init --apiserver-advertise-address=192.168.100.128
 
 ```
@@ -351,9 +353,20 @@ mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
-Configure network unit flannel
+Configure network unit
+
+**If you want to use flannel**
 
 sudo kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+
+**If you want to use weave net**
+
+```linux
+sudo sysctl net.bridge.bridge-nf-call-iptables=1
+sudo chmod 666 /etc/kubernetes/admin.conf
+export kubever=$(kubectl version | base64 | tr -d '\n')
+kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$kubever"
+```
 
 **[node01] [node02]**
 
@@ -383,3 +396,4 @@ sudo cp -i $HOME/.kube/config /etc/kubernetes/admin.conf
 echo "export KUBECONFIG=$HOME/.kube/config" >> ~/.bash_profile
 
 source ~/.bash_profile
+
