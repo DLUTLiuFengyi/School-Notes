@@ -1,5 +1,75 @@
 ---
 
+### Data
+
+Read the source and return DataQuanta[Record]
+
+**Record.java** 
+
+Actual data
+
+**RecordType.java**
+
+A specify BasicDataUnitType for Records, it adds schema information
+
+```java
+Operator.java
+/**
+ * Connect an output of this operator to the input of a second operator.
+ *
+ * @param thisOutputIndex index of the output slot to connect to
+ * @param that            operator to connect to
+ * @param thatInputIndex  index of the input slot to connect from
+ */
+@SuppressWarnings("unchecked")
+default <T> void connectTo(int thisOutputIndex, Operator that, int thatInputIndex) {
+    final InputSlot<T> inputSlot = (InputSlot<T>) that.getInput(thatInputIndex);
+    final OutputSlot<T> outputSlot = (OutputSlot<T>) this.getOutput(thisOutputIndex);
+    outputSlot.connectTo(inputSlot);
+}
+```
+
+```java
+OutputSlot.java
+/**
+ * Connect this output slot to an input slot. The input slot must not be occupied already.
+ *
+ * @param inputSlot the input slot to connect to
+ */
+public void connectTo(InputSlot<T> inputSlot) {
+    this.occupiedSlots.add(inputSlot);
+    inputSlot.setOccupant(this);
+}
+```
+
+###  Return Thing
+
+Return DataQuantaBuilder [DataQuanta[Record]]
+
+.readTable 
+
+Calls a method of DataQunataBuilder names "asRecords". Returns a RecordDataQuantaBuilder(DataQuantaBuilder for the Records in the table)
+
+.filter
+
+Return a FilterDataQuantaBuilder
+
+
+
+### SQL clause
+
+PredicateDescriptor.java
+
+udf - SerializablePredicate
+
+sqlUdf - String
+
+this.sqlImplementation = sqlUdf
+
+
+
+---
+
 JavaApiTest.java
 
 testSqlOnJava
