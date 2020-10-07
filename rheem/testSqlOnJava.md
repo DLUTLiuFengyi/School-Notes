@@ -1,5 +1,3 @@
----
-
 ### Data
 
 Read the source and return DataQuanta[Record]
@@ -67,8 +65,6 @@ sqlUdf - String
 this.sqlImplementation = sqlUdf
 
 
-
----
 
 JavaApiTest.java
 
