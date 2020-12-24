@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rheem-wordcount-pod
+spec:
+  volumes:
+  - name: nfs-volume
+    persistentVolumeClaim:
+      claimName: pvc-nfs
+  containers:
+  - name: rheem-wordcount
+    image: spark-env:v0
+    imagePullPolicy: IfNotPresent
+    command: ["java"]
+    args:  ["-jar", "/data/lfy/jars/wordcount_k8s.jar", "java,spark", "file:/data/datasets/wordcount_50G.txt",   "/data/lfy/results/wordcount_result.txt", "/data/lfy/rheem.properties"]
+    volumeMounts:
+    - mountPath: /data
+      name: nfs-volume

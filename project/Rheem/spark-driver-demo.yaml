@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-spark
+  namespace: argo
+spec:
+  template:
+    spec:
+      containers:
+        - name: spark-driver
+          image: spark-env:v0
+          imagePullPolicy: IfNotPresent
+          command:
+          - /bin/sh
+          - -c
+          args:
+          - /spark-runner/bin/spark-submit --master spark://spark-master-svc:7077 --deploy-mode cluster --name spark-pi --class org.apache.spark.examples.SparkPi --conf=spark.kubernetes.namespace=argo --conf spark.executor.instances=10 --conf spark.kubernetes.container.image=spark-env:v0 /data/jars/spark-examples_2.11-2.4.5.jar
+          volumeMounts:
+            - name: nfs-volume
+              mountPath: /data
+      restartPolicy: Never
+      volumes:
+        - name: nfs-volume
+          persistentVolumeClaim:
+            claimName: pvc-nfs

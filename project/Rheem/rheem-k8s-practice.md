@@ -49,6 +49,7 @@ uniq -c
 sudo docker images
 # 先由spark-env:v0镜像运行一个容器
 sudo docker run -it spark-env:v0 /bin/bash
+(sudo docker run -it --name="spark-env-watch" spark-env:v0  /bin/bash)
 cd /root
 mkdir results
 
@@ -73,25 +74,25 @@ sudo docker commit -m "add rheem jars" -a "lfy" 817e0b463407 rheem-spark:v1
 **编写yaml文件**
 
 ```shell
-vim job-rheem-pagerank-soc-k8s.yml
+vim job-rheem-pagerank-soc.yml
 ```
 
 ```yml
 apiVersion: v1
 kind: Pod
 metadata:
-  name: rheem-pagerank-soc-k8s-pod
+  name: rheem-pagerank-soc-pod
 spec:
   volumes:
   - name: nfs-volume
     persistentVolumeClaim:
       claimName: pvc-nfs
   containers:
-  - name: rheem-pagerank-soc-k8s
+  - name: rheem-pagerank-soc
     image: rheem-spark:v1
     imagePullPolicy: IfNotPresent
     command: ["java"]
-    args:  ["-jar", "/root/jars/pagerank_soc.jar", "basic-graph,java,java-conversion,java-graph,graphchi", "file:/data/datasets/pagerank_soc_LiveJournal.txt", "1",  "/root/results/pagerank_result.txt"]
+    args:  ["-jar", "/data/lfy/jars/pagerank_soc.jar", "basic-graph,java,java-conversion,java-graph,spark,spark-graph,graphchi", "file:/data/datasets/pagerank_soc_LiveJournal.txt", "1",  "/data/lfy/results/pagerank_result.txt", "/data/lfy/rheem.properties"]
     volumeMounts:
     - mountPath: /data
       name: nfs-volume
@@ -126,4 +127,15 @@ kubectl logs rheem-pagerank-soc-k8s-pod -n argo
 # 删除pod
 kubectl delete pod rheem-pagerank-soc-k8s-pod -n argo
 ```
+
+```shell
+# 删除镜像
+sudo docker rmi [镜像id]
+# 删除容器
+sudo docker rm [容器id]
+```
+
+
+
+---
 
