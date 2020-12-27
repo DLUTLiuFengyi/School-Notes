@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rheem-pagerank-job
+spec:
+  template: 
+    spec: 
+      volumes:
+        - name: nfs-volume
+          persistentVolumeClaim:
+            claimName: pvc-nfs
+      containers:
+        - name: rheem-pagerank
+          image: spark-env:v0
+          imagePullPolicy: IfNotPresent
+          command: ["java"]
+          args:  ["-jar", "/data/lfy/jars/pagerank.jar", "basic-graph,java,java-conversion,java-graph,graphchi", "file:/data/datasets/graph_test_dqh/dqh_graph_test.csv", "32",  "/data/lfy/results/pagerank_result.txt"]
+          volumeMounts:
+            - mountPath: /data
+              name: nfs-volume
+      restartPolicy: Never

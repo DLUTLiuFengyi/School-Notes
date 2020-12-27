@@ -1,0 +1,4 @@
+spark-master-0                                           1/1     Running            4          18d    10.36.0.4    amax9   <none>           <none>
+spark-worker-0                                           1/1     Running            3          2d7h   10.44.0.1    amax8   <none>           <none>
+spark-worker-1                                           1/1     Running            4          18d    10.36.0.11   amax9   <none>           <none>
+spark-worker-2                                           1/1     Running            3          10d    10.36.0.12   amax9   <none>           <none>
