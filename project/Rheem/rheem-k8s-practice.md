@@ -1,3 +1,5 @@
+### Kubernetes命令
+
 #### 进入容器
 
 -it 交互，-- 固定格式，后接运行命令
@@ -28,9 +30,13 @@ echo "123" >> index1.html
 
 `kubectl apply -f ini-pod.xml`
 
+#### 查看pod中所有容器名字
+
+Use 'kubectl describe pod/hdfs-namenode-0 -n argo' to see all of the containers in this pod
+
 ---
 
-#### 实践
+### Rheem on k8s
 
 ```shell
 # 获取所有pods
@@ -92,7 +98,7 @@ spec:
     image: rheem-spark:v1
     imagePullPolicy: IfNotPresent
     command: ["java"]
-    args:  ["-jar", "/data/lfy/jars/pagerank_soc.jar", "basic-graph,java,java-conversion,java-graph,spark,spark-graph,graphchi", "file:/data/datasets/pagerank_soc_LiveJournal.txt", "1",  "/data/lfy/results/pagerank_result.txt", "/data/lfy/rheem.properties"]
+    args:  ["-jar", "/data/lfy/jars/pagerank_soc.jar", "basic-graph,java,java-conversion,java-graph,spark,spark-graph,graphchi", "file:/data/datasets/pagerank_soc_LiveJournal.txt", "1",  "/data/lfy/results/pagerank_result.txt"]
     volumeMounts:
     - mountPath: /data
       name: nfs-volume
@@ -135,7 +141,104 @@ sudo docker rmi [镜像id]
 sudo docker rm [容器id]
 ```
 
+#### Hadoop
+
+```shell
+# 进入hdfs-namenode-0这个pod
+kubectl exec -n argo -it hdfs-namenode-0 /bin/bash
+
+# 查看当前目录信息
+hdfs dfs -ls /
+
+exit
+```
+
+
+
 
 
 ---
+
+### Rheem  on non-k8s
+
+#### Spark Properties
+
+```properties
+spark.master = spark://10.176.24.160:8077
+spark.app.name = Rheem PageRank soc App
+spark.ui.showConsoleProgress = false
+spark.driver.memory = 24g
+spark.executor.memory = 108g
+spark.driver.maxResultSize=24g
+
+rheem.spark.cpu.mhz = 2700
+rheem.spark.machines = 2
+rheem.spark.cores-per-machine = 56
+```
+
+
+
+#### WordCount
+
+##### "The great Gatsby" excerpts
+
+**java**
+
+```shell
+java -jar wordcount.jar "java" "file:/nfs/data/datasets/wordcount_20G.txt" "/home/lfy/results/wordcount_result.txt"
+```
+
+**spark**
+
+```shell
+./spark-submit --class com.github.dlut.wordcount.java.WordCount  ~/jars/wordcount.jar "java,spark" "file:/home/lfy/data/wordcount_20G.txt" "/home/lfy/results/wordcount_result.txt"
+```
+
+
+
+#### PageRank
+
+##### 知乎粉丝数据集 60MB
+
+节点数 459199   边数 4612110
+
+**java**
+
+迭代32次，用时18s，近似收敛
+
+```shell
+java -jar pagerank.jar "basic-graph,java,java-conversion,java-graph,graphchi" "file:/nfs/data/datasets/graph_test_dqh/dqh_graph_test.csv" 32 "/nfs/data/lfy/results/pagerank_result.txt"
+```
+
+**spark**
+
+迭代32次，用时107.87s，近似收敛
+
+```shell
+./spark-submit --class com.github.dlut.pagerank.scala.PageRank  ~/jars/pagerank.jar "basic-graph,java,java-conversion,java-graph,spark,spark-graph,graphchi" "file:/home/lfy/data/dqh_graph_test.csv" 32 "/home/lfy/results/pagerank_result.txt"
+```
+
+
+
+##### Stanford LiveJournal social network 1.06GB
+
+节点数 4847571   边数 68993773
+
+**java**
+
+迭代10次，用时207s
+
+迭代15次，用时256.13s，近似收敛
+
+```shell
+java -jar pagerank_soc.jar "basic-graph,java,java-conversion,java-graph,graphchi" "file:/nfs/data/datasets/pagerank_soc_LiveJournal.txt" 10 "/nfs/data/lfy/results/pagerank_result.txt"
+```
+
+**spark**
+
+迭代15次，用时196.7s
+
+```shell
+./spark-submit --class com.github.dlut.pagerank.scala.PageRank  ~/jars/pagerank_soc.jar "basic-graph,java,java-conversion,java-graph,spark,spark-graph,graphchi" "file:/home/lfy/data/pagerank_soc_LiveJournal.txt" 15 "/home/lfy/results/pagerank_result.txt"
+```
 
