@@ -61,7 +61,7 @@ mkdir results
 
 # 终端2
 sudo docker ps
-# 往容器里添加几个文件（此时会在/root/目录下粘贴一个主机的jars文件夹）
+# 往容器里添加几个文件（此时会在/root/目录(~目录)下粘贴一个主机的jars文件夹）
 sudo docker cp jars/ 817e0b463407:/root/
 
 # 终端1
@@ -76,6 +76,23 @@ exit
 sudo docker ps -a
 sudo docker commit -m "add rheem jars" -a "lfy" 817e0b463407 rheem-spark:v1
 ```
+
+**删除**
+
+```shell
+sudo docker stop [容器id]
+sudo docker rm [容器id]
+sudo docker rmi [镜像id]
+```
+
+**重启容器**
+
+```shell
+sudo docker start [容器id]
+sudo docker exec -it [容器id] /bin/bash
+```
+
+
 
 **编写yaml文件**
 
@@ -164,7 +181,8 @@ exit
 #### Spark Properties
 
 ```properties
-spark.master = spark://10.176.24.160:8077
+spark.master = spark://10.176.24.160:8077 
+#spark.master = spark://spark-master-svc:7077 #k8s
 spark.app.name = Rheem PageRank soc App
 spark.ui.showConsoleProgress = false
 spark.driver.memory = 24g
@@ -185,13 +203,13 @@ rheem.spark.cores-per-machine = 56
 **java**
 
 ```shell
-java -jar wordcount.jar "java" "file:/nfs/data/datasets/wordcount_20G.txt" "/home/lfy/results/wordcount_result.txt"
+java -jar ~/jars/wordcount.jar "java" "file:/home/lfy/data/wordcount_1G.txt" "/home/lfy/results/wordcount_result.txt"
 ```
 
 **spark**
 
 ```shell
-./spark-submit --class com.github.dlut.wordcount.java.WordCount  ~/jars/wordcount.jar "java,spark" "file:/home/lfy/data/wordcount_20G.txt" "/home/lfy/results/wordcount_result.txt"
+./spark-submit --class com.github.dlut.wordcount.java.WordCount ~/jars/wordcount.jar "java,spark" "file:/home/lfy/data/wordcount_1G.txt" "/home/lfy/results/wordcount_result.txt"
 ```
 
 

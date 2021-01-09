@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rheem-wordcount-java-4g
+spec:
+  template:
+    spec: 
+      volumes:
+        - name: nfs-volume
+          persistentVolumeClaim:
+            claimName: pvc-nfs
+      containers:
+        - name: rheem-wordcount-java-4g
+          image: spark-env:v0
+          imagePullPolicy: IfNotPresent
+          command: ["java"]
+          args:  ["-jar", "/data/lfy/jars/wordcount.jar", "java", "file:/data/datasets/wordcount_4G.txt", "/data/lfy/results/wordcount_result.txt"]
+          volumeMounts:
+            - mountPath: /data
+              name: nfs-volume
+      restartPolicy: Never

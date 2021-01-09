@@ -12,6 +12,18 @@ java com.....xxx
 
 
 
+**注意**
+
+“找不到或无法加载主类”
+
+* META-INF文件里的MANIFEST.MF文件里是否写明Main-Class属性
+
+* pom里的依赖是否有版本冲突
+
+  例如spark.version用2.4.5，jar包可执行；用1.6.1，jar包不可执行
+
+  
+
 ### URI
 
 https://blog.csdn.net/qbw2010/article/details/72868802

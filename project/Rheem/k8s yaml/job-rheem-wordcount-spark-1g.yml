@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rheem-wordcount-spark-1g
+spec:
+  template:
+    spec:
+      containers:
+        - name: rheem-wordcount-spark-1g
+          image: rheem-spark:v1
+          imagePullPolicy: IfNotPresent
+          command:
+          - /bin/sh
+          - -c
+          args:
+          - ~/spark-1.6.1-bin-hadoop2.3/bin/spark-submit --class com.github.dlut.wordcount.java.WordCount /data/lfy/jars/wordcount.jar "java,spark" "file:/data/datasets/wordcount_1G.txt" "/data/lfy/results/wordcount_result.txt"
+          volumeMounts:
+            - name: nfs-volume
+              mountPath: /data
+      restartPolicy: Never
+      volumes:
+        - name: nfs-volume
+          persistentVolumeClaim:
+            claimName: pvc-nfs

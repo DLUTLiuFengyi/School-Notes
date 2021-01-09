@@ -46,3 +46,7 @@ scp -r spark-2.4.5-bin-hadoop2.7/ xxx2:/home/xxx/
 
 
 
+#### IDEA连接远程Spark集群
+
+https://blog.csdn.net/weixin_38493025/article/details/103365712?utm_medium=distribute.pc_relevant.none-task-blog-BlogCommendFromBaidu-1.control&depth_1-utm_source=distribute.pc_relevant.none-task-blog-BlogCommendFromBaidu-1.control
+
