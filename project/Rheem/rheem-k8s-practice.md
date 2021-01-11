@@ -2,6 +2,8 @@
 
 #### 进入容器
 
+kubectl exec -n argo -it clic-shell-test /bin/bash
+
 -it 交互，-- 固定格式，后接运行命令
 
 `kubectl exec [pod名字] -c [容器名字] -it -- /bin/sh`
@@ -258,5 +260,15 @@ java -jar pagerank_soc.jar "basic-graph,java,java-conversion,java-graph,graphchi
 
 ```shell
 ./spark-submit --class com.github.dlut.pagerank.scala.PageRank  ~/jars/pagerank_soc.jar "basic-graph,java,java-conversion,java-graph,spark,spark-graph,graphchi" "file:/home/lfy/data/pagerank_soc_LiveJournal.txt" 15 "/home/lfy/results/pagerank_result.txt"
+```
+
+
+
+### CLIC
+
+```shell
+java -jar .\wc_java_nosink.jar --udfPath=D:/2020project/data/udfs/WordCountUDF.class --dagPath=D:/2020project/data/yaml/physical-dag-212742111.yml
+
+java -jar wc_java_nosink.jar --udfPath=/home/lfy/data/WordCountUDF.class --dagPath=/home/lfy/data/physical-dag-wc-java.yml
 ```
 
