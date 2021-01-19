@@ -50,7 +50,7 @@ sort |\
 uniq -c
 ```
 
-**修改image**
+**修改image（现在不需要了，改成将所需文件都放在挂载的nfs或hdfs）**
 
 ```shell
 # 终端1
@@ -192,7 +192,7 @@ spark.executor.memory = 108g
 spark.driver.maxResultSize=24g
 
 rheem.spark.cpu.mhz = 2700
-rheem.spark.machines = 2
+rheem.spark.machines = 3
 rheem.spark.cores-per-machine = 56
 ```
 
@@ -264,11 +264,48 @@ java -jar pagerank_soc.jar "basic-graph,java,java-conversion,java-graph,graphchi
 
 
 
+---
+
 ### CLIC
 
 ```shell
-java -jar .\wc_java_nosink.jar --udfPath=D:/2020project/data/udfs/WordCountUDF.class --dagPath=D:/2020project/data/yaml/physical-dag-212742111.yml
+java -jar .\wc_java.jar --udfPath=D:/2020project/data/udfs/WordCountUDF.class --dagPath=D:/2020project/data/yaml/physical-dag-212742111.yml
 
-java -jar wc_java_nosink.jar --udfPath=/home/lfy/data/WordCountUDF.class --dagPath=/home/lfy/data/physical-dag-wc-java.yml
+java -jar ~/jars/wc_java.jar --udfPath=/home/lfy/data/WordCountUDF.class --dagPath=/home/lfy/codes/yaml/physical-dag-wc-java-local-1g.yml
+
+./spark-submit --master=spark://10.176.24.160:8077 --class fdu.daslab.executable.spark.ExecuteSparkOperator ~/jars/wc_spark.jar --udfPath=/home/lfy/data/WordCountUDF.class --dagPath=/home/lfy/codes/yaml/physical-dag-wc-spark-local-1g.yml
+```
+
+
+
+---
+
+### HDFS
+
+```shell
+hdfs dfs -ls \
+
+# 创建文件夹
+hdfs dfs -mkdir /data/datasets/wordcount
+# 上传
+hdfs dfs -put ~/data/wordcount_1G.txt /data/datasets/wordcount
+# 下载
+hdfs dfs -get /data/datasets/wordcount/wordcount_1G.txt ~/results
+
+String hdfsPath = "hdfs://ip:port/data/datasets/wordcount/wordcount_1G.txt"
+```
+
+https://www.jianshu.com/p/52506c7bf662
+
+
+
+---
+
+#### London crime
+
+```shell
+java -jar london.jar java hdfs://10.176.24.160:9820/tzw/london_crime/london_crime_0.45g.csv
+
+# file:\D:\2020project\london\london_crime_0.45g.csv
 ```
 

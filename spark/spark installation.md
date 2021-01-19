@@ -32,6 +32,13 @@ scp -r spark-2.4.5-bin-hadoop2.7/ xxx2:/home/xxx/
 
 # slaves /sbin
 ./start-slave.sh spark://xxx:8077
+
+# 将master也设为worker节点
+# 在所有主机的conf/
+vim slaves
+# 添加master的ip
+# 在master也执行
+./start-slave.sh spark://xxx:8077
 ```
 
 停止
