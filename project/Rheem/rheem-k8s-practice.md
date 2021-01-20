@@ -180,14 +180,20 @@ exit
 
 ### Rheem  on non-k8s
 
+#### Java Properties
+
+```properties
+rheem.java.cores = 56
+```
+
 #### Spark Properties
 
 ```properties
-spark.master = spark://10.176.24.160:8077 
+spark.master = spark://ip:8077
 #spark.master = spark://spark-master-svc:7077 #k8s
-spark.app.name = Rheem PageRank soc App
+spark.app.name = Rheem App
 spark.ui.showConsoleProgress = false
-spark.driver.memory = 24g
+spark.driver.memory = 50g
 spark.executor.memory = 108g
 spark.driver.maxResultSize=24g
 
@@ -195,6 +201,10 @@ rheem.spark.cpu.mhz = 2700
 rheem.spark.machines = 3
 rheem.spark.cores-per-machine = 56
 ```
+
+java.net.URISyntaxException: Illegal character in authority at index 8: spark://ip:8077
+
+原因：spark://ip:8077后多了一个空格
 
 
 
@@ -304,8 +314,38 @@ https://www.jianshu.com/p/52506c7bf662
 #### London crime
 
 ```shell
-java -jar london.jar java hdfs://10.176.24.160:9820/tzw/london_crime/london_crime_0.45g.csv
+java -Xmx50g -jar london.jar java hdfs://10.176.24.160:9820/tzw/london_crime/london_crime_0.45g.csv
 
-# file:\D:\2020project\london\london_crime_0.45g.csv
+./spark-submit --class com.github.dlut.london.SparkJavaTask ~/jars/london.jar "spark" hdfs://10.176.24.160:9820/tzw/london_crime/london_crime_0.45g.csv
+
+# 考虑java平台时，需要特别声明--driver-memory，以避免堆溢出
+# 此参数等同于java里的-Xmx，含义是最大堆大小
+./spark-submit --driver-memory 50G --class com.github.dlut.london.SparkJavaTask ~/jars/london.jar "java" hdfs://10.176.24.160:9820/tzw/london_crime/london_crime_3.5g.csv
 ```
+
+我们使用java -X可以看到java的-X系列的参数
+
+* Xmx: memory max
+
+  最大可以从操作系统中获取的内存数量
+
+* Xms: memory start
+
+  程序启动的时候从操作系统中获取的内存数量
+
+`java -cp . -Xms80m -Xmx256m `
+
+说明这个程序启动的时候使用80m的内存，最多可以从操作系统中获取256m的内存
+
+
+
+| 数据量 | spark  | java   | spark + java |
+| ------ | ------ | ------ | ------------ |
+| 450M   | 24068  | 8275   | 8307         |
+| 900M   | 24593  | 13206  | 13495        |
+| 1.8G   | 24967  | 25666  | 24906        |
+| 3.5G   | 26782  | 51958  | 49990        |
+| 7G     | 29792  | 97700  | 97834        |
+| 14G    | 69166  | 191746 | 187278       |
+| 28G    | 197223 | 394137 | 366560       |
 
