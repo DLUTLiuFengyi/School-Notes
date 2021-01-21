@@ -14,12 +14,12 @@ spark.master = spark://ip:8077
 spark.app.name = Rheem App
 spark.ui.showConsoleProgress = false
 spark.driver.memory = 50g
-spark.executor.memory = 108g
-spark.driver.maxResultSize=24g
+spark.executor.memory = 120g
+spark.driver.maxResultSize=10g
 
 rheem.spark.cpu.mhz = 2700
 rheem.spark.machines = 3
-rheem.spark.cores-per-machine = 56
+rheem.spark.cores-per-machine = 62
 ```
 
 java.net.URISyntaxException: Illegal character in authority at index 8: spark://ip:8077
@@ -161,13 +161,23 @@ java -Xmx50g -jar london.jar java hdfs://ip:9820/tzw/london_crime/london_crime_0
 
 | 数据量 | spark  | java   | spark + java |
 | ------ | ------ | ------ | ------------ |
-| 450M   | 24068  | 8275   | 8307         |
-| 900M   | 24593  | 13206  | 13495        |
+| 450M   | 24068  | 7985   | 7848         |
+| 900M   | 24593  | 13169  | 13495        |
 | 1.8G   | 24967  | 25666  | 24906        |
 | 3.5G   | 26782  | 46158  | 46673        |
-| 7G     | 28500  | 97700  | 97834        |
-| 14G    | 39989  | 191746 | 187278       |
-| 28G    | 156457 | 394137 | 366560       |
+| 7G     | 28500  | 92170  | 97834        |
+| 14G    | 39989  | 185162 | 187278       |
+| 28G    | 155150 | 360084 | 366560       |
+
+| 数据量 | spark | java | spark + java |
+| ------ | ----- | ---- | ------------ |
+| 450M   |       |      |              |
+| 900M   |       |      |              |
+| 1.8G   |       |      |              |
+| 3.5G   |       |      |              |
+| 7G     | 27963 |      |              |
+| 14G    | 33548 |      |              |
+| 28G    |       |      | 361229       |
 
 **结论**
 
