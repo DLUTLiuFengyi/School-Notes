@@ -1,3 +1,7 @@
+---
+typora-root-url: pic
+---
+
 ## TreeNode
 
 TreeNode Library is the **core** lib of **Catalyst**. one by one TreeNode constructing AST.
@@ -12,7 +16,7 @@ three kinds of TN:
 
 those Nodes are all extend **Logical Plan** in catalyst, you can say **each TN is a Logical Plan(include Expression) (directly extends TN)**
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\csdn-second\treenode1.png)
+![](/treenode1.png)
 
 ### BinaryNode
 
@@ -208,7 +212,7 @@ Project [*]
     UnresolvedRelation None, src, None
 ```
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\csdn-second\treenode2.png)
+![](/treenode2.png)
 
 #### Analyzed Logical Plan
 
@@ -216,7 +220,7 @@ Project [*]
 
 here use `EliminateAnalysisOperator` to eliminate **Subquery**
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\csdn-second\treenode3.png)
+![](/treenode3.png)
 
 #### Optimized Plan
 
@@ -229,7 +233,7 @@ Project [key#0,value#1,key#2,value#3]
   MetastoreRelation default, src, None
 ```
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\csdn-second\treenode4.png)
+![](/treenode4.png)
 
 #### executedPlan
 
@@ -246,7 +250,7 @@ Project [key#0:0,value#1:1,key#2:2,value#3:3]
    HiveTableScan [key#2,value#3], (MetastoreRelation default, src, None), None
 ```
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\csdn-second\treenode5.png)
+![](/treenode5.png)
 
 
 

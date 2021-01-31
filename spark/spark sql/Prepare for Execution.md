@@ -1,3 +1,7 @@
+---
+typora-root-url: pic
+---
+
 ## Prepare for Execution
 
 Change the Physical Plan into executable Physical Plan.
@@ -38,7 +42,7 @@ verify whether the output partitions are the same as waht we need, if not, add `
 
 about optimization. change a series of **operators** into a piece of code (spark sql to java code) to improve performance
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\prepare1.png)
+![](/prepare1.png)
 
 **ReuseExchange and ReuseSubquery**
 
@@ -65,7 +69,7 @@ Project [_1#2 AS key#5]
 
 好吧这里看还是和之前Optimation阶段一样，不过断点看就不大一样了。
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\prepare2.png)
+![](/prepare2.png)
 
 due to the simple SQL, here just adds two **SparkPlan**: WholeStageCodegenExec and InputAdapter
 

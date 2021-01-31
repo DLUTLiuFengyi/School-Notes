@@ -1,3 +1,7 @@
+---
+typora-root-url: pic
+---
+
 ## Catalyst - Anlrt4
 
 

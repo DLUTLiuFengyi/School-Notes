@@ -1,8 +1,12 @@
+---
+typora-root-url: pic
+---
+
 ## Physical Plan
 
 the last plan in **Catalyst**
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\csdn-second\physicalplan1.png)
+![](/physicalplan1.png)
 
 ### SparkPlanner
 
@@ -76,7 +80,7 @@ abstract class QueryPlanner[PhysicalPlan <: TreeNode[PhysicalPlan]] {
 }
 ```
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\csdn-second\physicalplan2.png)
+![](/physicalplan2.png)
 
 ### Spark Plan
 
@@ -125,7 +129,7 @@ abstract class SparkPlan extends QueryPlan[SparkPlan] with Logging {
 }
 ```
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\csdn-second\physicalplan3.png)
+![](/physicalplan3.png)
 
 ### Execution
 

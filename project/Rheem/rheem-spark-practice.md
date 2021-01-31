@@ -1,9 +1,13 @@
+---
+typora-root-url: pic
+---
+
 ### Rheem  on non-k8s
 
 #### Java Properties
 
 ```properties
-rheem.java.cores = 56
+rheem.java.cores = 62
 ```
 
 #### Spark Properties
@@ -140,7 +144,7 @@ java -Xmx50g -jar london.jar java hdfs://ip:9820/tzw/london_crime/london_crime_0
 
 # 考虑java平台时，需要特别声明--driver-memory，以避免堆溢出
 # 此参数等同于java里的-Xmx，含义是最大堆大小
-./spark-submit --driver-memory 50G --class com.github.dlut.london.SparkJavaTask ~/jars/london.jar "java" hdfs://ip:9820/tzw/london_crime/london_crime_3.5g.csv
+./spark-submit --driver-memory 50G --class com.github.dlut.london.SparkJavaTask ~/jars/london.jar "java,spark" hdfs://ip:9820/tzw/london_crime/london_crime_3.5g.csv
 ```
 
 我们使用java -X可以看到java的-X系列的参数
@@ -159,25 +163,34 @@ java -Xmx50g -jar london.jar java hdfs://ip:9820/tzw/london_crime/london_crime_0
 
 
 
-| 数据量 | spark  | java   | spark + java |
-| ------ | ------ | ------ | ------------ |
-| 450M   | 24068  | 7985   | 7848         |
-| 900M   | 24593  | 13169  | 13495        |
-| 1.8G   | 24967  | 25666  | 24906        |
-| 3.5G   | 26782  | 46158  | 46673        |
-| 7G     | 28500  | 92170  | 97834        |
-| 14G    | 39989  | 185162 | 187278       |
-| 28G    | 155150 | 360084 | 366560       |
+| 数据量 | spark  | java   | spark + java | spark + java (手动) |
+| ------ | ------ | ------ | ------------ | ------------------- |
+| 900M   | 24593  | 13169  | 13495        | 15262               |
+| 1.8G   | 24967  | 25666  | 24906        | 19770               |
+| 3.5G   | 26782  | 46158  | 46673        | 25597               |
+| 7G     | 28500  | 92170  | 97834        | 38791               |
+| 14G    | 39989  | 185162 | 187278       | 69289               |
+| 28G    | 155150 | 360084 | 366560       | 151564              |
 
-| 数据量 | spark | java | spark + java |
-| ------ | ----- | ---- | ------------ |
-| 450M   |       |      |              |
-| 900M   |       |      |              |
-| 1.8G   |       |      |              |
-| 3.5G   |       |      |              |
-| 7G     | 27963 |      |              |
-| 14G    | 33548 |      |              |
-| 28G    |       |      | 361229       |
+| 数据量 | spark  | java | spark + java | spark + java (手动) |
+| ------ | ------ | ---- | ------------ | ------------------- |
+| 900M   | 32791  |      |              | 15817               |
+| 1.8G   | 34259  |      |              | 20046               |
+| 3.5G   | 37006  |      |              | 25771               |
+| 7G     | 39665  |      |              | 40955               |
+| 14G    | 45620  |      |              | 71025               |
+| 28G    | 135064 |      |              | 164527              |
+
+
+
+| 数据量 | spark + java (手动) |
+| ------ | ------------------- |
+| 900M   | 9000+7771=16771     |
+| 1.8G   | 10000+10557=20557   |
+| 3.5G   | 11000+14859=25859   |
+| 7G     | 15000+24394=39394   |
+| 14G    | 25000+47286=72286   |
+| 28G    | 96000+89236=185236  |
 
 **结论**
 
@@ -275,7 +288,38 @@ reduceByKey   ReduceByKey [12] reduceByKey at SparkReduceByOperator.java:76
 
 map   ReduceByKey [13] map at SparkReduceByOperator.java:78
 
+---
 
+#### new pagerank
 
+```shell
+java -Xmx100g -jar /home/lfy/jars/pg_new_sort.jar "basic-graph,java,java-conversion,java-graph,spark,spark-graph,graphchi" "file:/yadisk/datasets/pagerank/0.csv" 100 "/home/lfy/results/pagerank_result.txt"
 
+./spark-submit --driver-memory 100G --executor-memory 120g  --class com.github.dlut.pagerank.scala.PageRank  ~/jars/pg_new_sort.jar "spark,spark-graph" "hdfs://ip:9820/data/datasets/Pagerank/0.csv" 100 "/home/lfy/results/pagerank_result.txt"
 
+./spark-submit --driver-memory 100G --class com.github.dlut.pagerank.scala.PageRank  ~/jars/pg_new_sort.jar "basic-graph,java,java-conversion,java-graph,spark,spark-graph,graphchi" "hdfs://ip:9820/data/datasets/Pagerank/0.csv" 100 "/home/lfy/results/pagerank_result.txt"
+```
+
+实际在java上跑
+
+|      | 10      | 100     | 200     | 500     | 800  | 1000 |
+| ---- | ------- | ------- | ------- | ------- | ---- | ---- |
+| 64M  | 12.85s  | 34.65s  | 55.21s  | 134.93s |      |      |
+| 278M | 46.24s  | 147.22s | 278.06s | 587.88s |      |      |
+| 577M | 96.23s  | 294.97s | 543.18s |         |      |      |
+| 1.2G | 176.91s | 542.89s |         |         |      |      |
+
+实际在spark上跑
+
+spark把任务切分成1.1万多个stage，跑得特别慢
+
+|      | 10   | 100     | 200  | 500  | 800  | 1000 |
+| ---- | ---- | ------- | ---- | ---- | ---- | ---- |
+| 64M  |      | 373.97s |      |      |      |      |
+| 278M |      |         |      |      |      |      |
+| 577M |      |         |      |      |      |      |
+| 1.2G |      |         |      |      |      |      |
+
+rheem在spark平台的PageRank算子使用spark graphx的PageRank算子
+
+![image-20210127201924449](/rheem-spark-pg)

@@ -1,8 +1,12 @@
+---
+typora-root-url: pic
+---
+
 ## Spark SQL Progress
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\csdn-second\sparksqlprogress1.png)
+![](/sparksqlprogress1.png)
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\csdn-second\sparksqlprogress2.png)
+![](/sparksqlprogress2.png)
 
 * sql
 * sql parser(parse) 生成 unresolved logical plan

@@ -1,8 +1,12 @@
+---
+typora-root-url: pic
+---
+
 ## SqlParser
 
 SqlParser is a SQL parser, Parser encapsulate parsed result into **Catalyst TreeNode**
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\csdn-second\sqlparser1.png)
+![](/sqlparser1.png)
 
 Unresolved Logical Plan includes
 
@@ -46,7 +50,7 @@ parseSql implements a **SqlParser**, this Parser calls its `apply`
 
 SqlParser class graph
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\csdn-second\sqlparser2.png)
+![](/sqlparser2.png)
 
 SqlParser extends Parsers, now SqlParser has word segmentation func and parsing combiner func
 

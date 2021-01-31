@@ -1,8 +1,12 @@
+---
+typora-root-url: pic
+---
+
 ## Optimizer
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\csdn-second\optimizer1.png)
+![](/optimizer1.png)
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\csdn-second\optimizer2.png)
+![](/optimizer2.png)
 
 Optimizer and Analyzer all extend RuleExecutor[LogicalPlan], all do a series of Batch operation
 

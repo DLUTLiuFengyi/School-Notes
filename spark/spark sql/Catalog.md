@@ -1,3 +1,7 @@
+---
+typora-root-url: pic
+---
+
 ## Catalog
 
 Spark SQL provides a minimalist API known as Catalog API for data processing applications to query and use the metadata in the applications. The Catalog API exposes a catalog abstraction with many databases in it. 

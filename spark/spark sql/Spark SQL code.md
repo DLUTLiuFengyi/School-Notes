@@ -1,3 +1,7 @@
+---
+typora-root-url: pic
+---
+
 ## A Blog
 
 ### Process
@@ -32,7 +36,7 @@ TreeNode
 
 x+(1+2)   =>   Add(Attribute(x), Add(Literal(1), Literal(2)))
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\ast1.png)
+![](/ast1.png)
 
 Rule: the rules used on Tree. By pattern matching, matching success -> use the transfer of rule, matching fail -> continue to match child nodes
 
@@ -46,7 +50,7 @@ expression.transform {
 
 ### flow chart
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\ast2.png)
+![](/ast2.png)
 
 #### general process
 
@@ -98,10 +102,10 @@ expression.transform {
 
 
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\sparksqlcode3.png)
+![](/sparksqlcode3.png)
 
 
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\sparksqlcode1.png)
+![](/sparksqlcode1.png)
 
-![](D:\ideaprojects\yanjiushengbiji\spark\spark sql\sparksqlcode2.png)
+![](/sparksqlcode2.png)

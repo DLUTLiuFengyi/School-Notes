@@ -1,3 +1,7 @@
+---
+typora-root-url: pic
+---
+
 ## Optimizer
 
 There are two parts of optimization in spark sql, the first is this step. It's **rule-base**.
