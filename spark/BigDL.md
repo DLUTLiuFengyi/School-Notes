@@ -1,12 +1,8 @@
-- 
-
----
-
-#### BigDL
+### BigDL
 
 intel开源，基于spark的深度学习框架
 
-特点：
+#### 特点
 
 * CPU
 * 纯分布式（Spark）
@@ -42,6 +38,12 @@ intel开源，基于spark的深度学习框架
 4. 轻度深度学习使用者，如：数据研发工程师/数据挖掘工程师
 5. Scala/JVM爱好者
 
-**Paper**
+#### White Paper
 
 https://bigdl-project.github.io/0.5.0/#whitepaper/
+
+#### Ideas
+
+The *shuffle* and *task-side broadcast* operations described above are implemented on top of the distributed **in-memory** storage in Spark: both the shuffled *gradients* and broadcasted *weights* are materialized in memory, which can be read remotely by the Spark tasks with extremely low latency.
+
+是否可以用零拷贝技术优化？
