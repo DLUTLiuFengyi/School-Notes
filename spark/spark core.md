@@ -267,15 +267,7 @@ goalSize = 7 / 2 = 3 Byte
 
    collect
 
-##### 转换
-
-1. value类型
-
-   map
-
-2. 双value类型
-
-3. key-value类型
+##### 转换 - value类型
 
 ##### map与mapPartition
 
@@ -345,3 +337,274 @@ rdd.mapPartitionsWithIndex(
 })
 ```
 
+##### groupBy
+
+将数据根据指定的规则进行分组，分区默认不变，但是数据会被打乱重新组合，这样的操作称为**shuffle**，极限情况下数据可能被分在同一个分区中。
+
+例如：[1,2] [3,4] -> [1,3] [2,4]  就是将数据打乱再重新组合
+
+一组的数据在一个分区中，但并不是说一个分区只有一个组，**分组和分区没有必然关系**，具体怎么放，底层是有逻辑的。
+
+```scala
+val rdd : RDD[Int] = sc.makeRDD(List(1,2,3,4),2)
+//将数据源中每一个数据进行分组判断，根据返回的分组key进行分组
+//相同的key值会放置在一个组中
+def groupFunction(num:Int):Unit = {
+	num % 2 //奇偶分类    
+}
+val groupRDD: RDD[(Int,Iterable[Int]] = rdd.groupBy(groupFunction)
+//[0, [2,4]] [1, [1,3]]
+```
+
+```scala
+val rdd : RDD[Int] = sc.makeRDD(List("Hello", "Hadoop", "Scala", "Spark"),2)
+//相同首字母的划分成一组
+val groupRDD = rdd.groupBy(_.charAt(0))
+```
+
+```scala
+val timeRDD: RDD[(String, Iterable[(String, Int)])] = rdd.map(
+	line => {
+        val datas = line.split(" ")
+        val time = datas(3)
+        val sdf = new SimpleDateFormat("dd/MM/yyyy:HH:mm:ss")
+        val date: Date = sdf.parse(time)
+        val sdf1 = new SimpleDateFormat("HH")
+        val hour: String = sdf1.format(date)
+        (hour, 1)
+    }
+//).reduceByKey(_+_)
+).groupBy(_._1) //按照时间分组
+//转换一下
+timeRDD.map{
+    case (hour, iter) => {
+        (hour, iter.size)
+    }
+}.collect.foreach(println)
+//(06,366) (20,120) (...)
+```
+
+groupBy也可以做wordcount，不用非得用reduceBy
+
+##### filter
+
+可能出现**数据倾斜**（各分区数据很不均衡）
+
+##### sample
+
+* 第一个参数表示抽取数据后是否将数据放回（true表示放回）
+
+* 第二个参数表示数据源中每条数据被抽取的概率
+
+  基准值的概念 0.4表示大于0.4就出来，否则不出来
+
+* 第三个参数表示抽取数据时随机算法的种子（每条数据概率的随机值）
+
+  如果不传第三个参数，那么使用的是当前系统时间
+
+```scala
+//1,2,3,4,5,6,7,8,9,10
+rdd.sample(
+	false,
+    0.4
+    1
+).collect.mkString(",")
+//1,2,6,10
+```
+
+泊松分布、伯努利分布
+
+数据采样有什么用？用于判断是否存在数据倾斜
+
+##### coalesce
+
+缩减分区
+
+当spark程序中存在过多小任务时，通过coalesce方法收缩合并分区，减少分区个数，减小任务调度成本
+
+```scala
+rdd.coalesce(2)
+rdd.coalesce(2, true)//让它shuffle，使数据分布均衡
+```
+
+也可以扩大分区，但扩大的同时不shuffle，则无意义，因为数据不重新组合
+
+##### rePartition
+
+coalesce+shuffle参数固定为true
+
+##### sort
+
+```scala
+rdd.sortBy(t=>t._1.toInt, false) //默认是true升序
+```
+
+中间存在shuffle操作，因为数据存在打乱重新组合
+
+##### 转换-双value类型
+
+```scala
+//rdd1 1,2,3,4
+//rdd2 3,4,5,6
+//交集
+rdd3 = rdd1.intersection(rdd2)
+//并集
+rdd4 = rdd1.union(rdd2)
+//差集
+rdd5 = rdd1.subtract(rdd2)
+//拉链 [1-3,2-4,3-5,4-6]
+rdd6: RDD[(Int, Int)] = rdd1.zip(rdd2)
+```
+
+##### 转换-key value类型
+
+##### partitionBy
+
+根据指定的分区规则对数据进行重分区
+
+spark默认分区器是hashPartitioner
+
+```scala
+val rdd = sc.makeRDD(List(1,2,3,4))
+val mapRDD:RDD[(Int,Int)] = rdd.map((_,1)) //int变成tuple类型（变成k-v类型）
+//这里用了隐式转换，当程序编译出现错误时，会尝试在整个作用域范围之内查找转换规则，看是否能转换成特定类型来让其通过
+//也叫二次编译
+//RDD -> PairRDDFunctions
+//RDD.scala中存在一个伴生对象object RDD，里面有隐式函数rddToPairRDDFunctions[K,V](rdd:RDD[(K,V)])
+//隐式转换遵守OCP开发原则
+mapRDD.partitionBy(new HashPartitioner(partitions=2)).saveAsTextFile("output")
+```
+
+scala中==就是一个做了非空校验的equals
+
+RangePartitioner常用于排序，因为排序用范围比较多
+
+##### reduceByKey
+
+分组+聚合
+
+存在 **shuffle** 操作
+
+```scala
+sc.makeRDD(List(("a",1),("b",2),("c",3)))
+rdd1.reduceByKey(_+_)
+rdd1.reduceByKey(_+_, 2)
+```
+
+```scala
+rdd = sc.makeRDD(List(
+	("a",1),("a",2),("a",3),("b",4)	
+))
+//隐藏了一个分组的概念
+//scala语言中一般聚合操作都是两两聚合
+val reduceRDD: RDD[(String,Int)] = rdd.reduceByKey((x:Int, y:Int) => {x+y})
+//reduceByKey中若key的数据只有一个，则不会参与运算
+```
+
+##### groupByKey
+
+将数据源中的数据，相同的key分到一个组中，形成一个对偶元组
+
+元组中第一个元素是key
+
+元组中第二个元素是相同key的value集合
+
+是一个 **shuffle** 操作
+
+```scala
+sc.makeRDD(List(("a",1),("b",2),("c",3)))
+rdd1.groupByKey()
+rdd1.groupByKey(2)
+rdd1.groupByKey(new HashPartitioner(2))
+```
+
+```scala
+val rdd = sc.makeRDD(List(
+	("a",1),("a",2),("a",3),("b",4)	
+))
+val groupRDD:RDD[(String,Iterable[Int])] = rdd.groupByKey()
+//(a,CompactBuffer(1,2,3))
+//(b,...(4))
+val groupRDD1:RDD[(String,Iterable[(String,Int)])] = rdd.groupBy(_._1)
+//不会把value独立出来，因为分组的key不确定
+```
+
+有shuffle操作不能并行计算，需要等待，如果在内存中等待，内存可能不够用，因此必须落盘处理
+
+RDD与RDD之间存在File IO操作，因此shuffle操作的性能非常低
+
+核心区别是
+
+* reduceByKey是相同key的value两两聚合，能在起始RDD进行提前聚合，能有效减少落盘数据量
+
+  分区内和分区间计算规则相同
+
+* groupByKey没有聚合概念，聚合是通过之后的一个map来做
+
+##### aggregateByKey
+
+分区内和分区间计算规则可以独立设定
+
+```scala
+val rdd = sc.makeRDD(List(
+	("a",1),("a",2),("a",3),("b",4)	
+),2)
+//aggregateByKey存在函数柯里化，有两个参数列表
+//第一个参数列表需要一个参数，表示为初始值
+//   主要用于当碰见第一个key时，和value进行分区内计算
+//第二个参数列表需要两个参数
+//   第一个参数表示分区内计算规则
+//   第二个...分区间...
+rdd.aggregateByKey(zeroValue=0)(
+	(x,y) => math.max(x,y),
+    (x,y) => x + y
+).collect
+
+//获取相同key的数据的平均值 => (a,3),(b,4)
+val newRDD:RDD[(String, (Int,Int))] = rdd.aggregateByKey((0,0))(
+	(t,v) => {
+        t._1 + v, t._2 + 1
+    },
+    (t1,t2) => {
+        (t1._1 + t2._1, t1._2, t2._2)
+    }
+)
+//key不变，value变
+//RDD[(String, Int)]
+.mapValues{
+    case (num,cnt) => {
+        num / cnt
+    }
+}
+```
+
+##### foldByKey
+
+分区内和分区间计算规则相同
+
+（wordcount）
+
+##### combineByKey
+
+将相同key的第一个数据进行结构的转换
+
+##### join
+
+(K,V) (K,W) -> (K,(V,W))
+
+```scala
+val rdd1 = sc.makeRDD(List(
+	("a",1),("b",2),("c",3)
+))
+val rdd2 = sc.makeRDD(List(
+	("a",4),("b",5),("c",6)
+))
+//内连接
+rdd1.join(rdd2)
+//相同key没有，则不会出现在结果中
+//相同key有多个元素，则会依次匹配
+//可能出现笛卡尔乘积，会有内存风险，导致性能降低
+//其实底层实现是笛卡尔积？
+```
+
+尽量少用join，看是否有代替
