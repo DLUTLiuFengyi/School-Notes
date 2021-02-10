@@ -50,6 +50,12 @@ D委托AM，AM再向M申请资源
 
 ### RDD
 
+Spark三大数据结构
+
+* RDD：弹性分布式数据集
+* 累加器：分布式共享只写变量
+* 广播变量：分布式共享只读变量
+
 RDD中有数据和逻辑，相当于视频举例中的"Task"，而driver发送给executor的是"SubTask"，即RDD会被分解成多个task，发给不同的executor执行
 
 ```txt
@@ -266,6 +272,8 @@ goalSize = 7 / 2 = 3 Byte
 2. 行动：执行，触发task的执行和调度
 
    collect
+
+#### 转换算子
 
 ##### 转换 - value类型
 
@@ -608,3 +616,443 @@ rdd1.join(rdd2)
 ```
 
 尽量少用join，看是否有代替
+
+#### 行动算子
+
+触发整个计算（作业job）的执行
+
+##### collect
+
+看RDD.scala，def collect()，调用环境对象sc的runJob()
+
+```scala
+DAGScheduler.scala
+dagScheduler.runJob
+submitJob
+eventProcessLoop.post(JobSubmitted()) //提交消息触发事件
+def handleJobSubmitted()//handle表示处理这个事件
+val job = new ActiveJob()
+//总结：底层代码中会创建ActiveJob，并提交执行
+```
+
+collect方法会将不同分区的数据按照分区顺序采集到Driver端内存中，形成数组
+
+`val ints: Array[Int] = rdd.collect()`
+
+##### reduce
+
+直接出结果，因为触发作业的执行
+
+两两聚合
+
+```scala
+//1,2,3,4
+rdd.reduce(_+_) //10
+```
+
+ **count, first, take**
+
+##### aggregate
+
+初始值，分区内计算规则，分区间计算规则
+
+```scala
+//1,2,3,4
+val result = rdd.aggregate(zeroValue = 0)(_+_, _+_)
+//10
+//0+1+2=3, 0+3+4=7 => 3+7=10
+```
+
+* aggregateByKey初始值只会参与分区内计算
+* aggregate初始值会参与...，还会参与分区间计算
+
+**fold** agg简化版
+
+##### save
+
+saveAsSeqenceFile要求数据格式必须为k-v类型
+
+##### foreach
+
+分布式遍历RDD中的每一个元素
+
+没有顺序概念，并没有按照顺序采集
+
+```scala
+//driver端内存集合进行打印操作
+rdd.collect().foreach(println)
+//executor端内存数据进行打印操作
+rdd.foreach(println)
+```
+
+#### 算子
+
+* scala集合对象的方法都是在同一个节点的内存中完成的
+
+* RDD的方法可以将计算逻辑发送到Executor端执行
+
+为了区分，因此把RDD的方法称为算子。
+
+**RDD的方法外部的操作都是在Dirver端执行，而方法内部的逻辑代码是在Executor端执行**
+
+### RDD序列化 
+
+#### 闭包检测
+
+在函数式编程中，算子内经常用到算子外的数据，这样就形成了闭包效果
+
+```scala
+val rdd = sc.makeRDD(List(1,2,3,4))
+val user = new User() //算子外部的代码在driver端执行，因此在driver端构建了一个对象User
+rdd.foreach(
+    //下面代码在exe端执行（打印）
+	num => {
+        //用到了User，而User在driver端，因此需要在网络中传递User
+        //因此需要序列化
+        println("age = " + (user.age + num))
+    }
+)
+sc.stop()
+//main函数之外
+/**
+class User {
+    var age: Int = 30
+}
+**/
+//出现异常，原因是User没有序列化
+class User extends Serializable {
+    var age: Int = 30
+}
+//也可以写成
+//样例类在编译时，会自动混入序列化特质
+case class User() {
+    var age: Int = 30
+}
+
+//函数式编程含有闭包概念
+//RDD算子中传递的函数是会包含闭包操作，那么就会进行检测功能（把外部变量user引入内部代码，检测是否能传入）
+//闭包指的是num => {...}
+//foreach源码
+//sc.clean(f)
+//ClosureCleaner.clean(f,checkSerializable)闭包清除器，把不需要的功能清楚，check...就是检查序列化
+//继续点击clean，里面有判断!isClosure(func.getClass)
+if(checkS...) {
+    ensureS...(func) //尝试序列化，不能序列化则抛出错误
+}
+```
+
+闭包检测是分布式执行所需要注意的地方之一
+
+类的构造参数其实是类的属性，构造参数需要进行闭包检测，其实就等同于类进行闭包检测
+
+#### Kryo序列化框架
+
+Java序列化能序列化任何的类（产生的信息全），但比较重（字节多），序列化后对象的提交也比较大。
+
+Spark从2.0开始支持另一种kryo序列机制，kryo速度是serializable的10倍。
+
+RDD在shuffle数据时，简单数据类型、数组和字节串类型已经在spark内部使用kryo来序列化。
+
+**注意：**即使使用kryo，也要继承serializable接口
+
+### RDD依赖关系
+
+#### RDD血缘关系
+
+多个连续RDD的依赖关系叫血缘关系
+
+每个RDD会保存血缘关系
+
+容错性：一旦出现错误，可以根据血缘关系将数据源重新读取进行计算
+
+#### RDD重用
+
+一个RDD重复使用，则需要从头再次执行来获取数据
+
+有什么办法提高性能？不重复读取？
+
+持久化：在公共RDD节点处先保存在内存或文件中
+
+只会在后面触发了action操作，才会执行这一步的持久化
+
+```scala
+mapRDD.cache()//持久化在jvm堆内存中
+mapRDD.persist(StorageLever. ...)
+//MEMORY_ONLY, DISK_ONLY ...
+//落盘时保存为临时文件，运行完会删除
+```
+
+#### CheckPoint
+
+在中间阶段做检查点容错，将RDD中间结果落盘。
+
+```scala
+sc.setCheckPointDir(path)
+//需要指定路径，因为运行完毕后不删除
+//一般保存路径在分布式存储系统中（HDFS）
+mapRDD.checkpoint()
+```
+
+也含有RDD重用功能，但性能比perisist低，一般情况下与cache联合使用
+
+* cache会在血缘关系中添加新的依赖，一旦出现问题可以重头读取数据
+
+* checkpoint在执行过程中会切断血缘关系，重新建立新的血缘关系
+
+  checkpoint等同于改变数据源
+
+### Stage
+
+```scala
+DAGScheduler.scala
+finalStage = createResultStage()//划分阶段
+def createResultStage {
+    ...
+    getOrCreateParentStages()
+    new ResultStage()
+}
+def getOr...{
+    //获取shuffle依赖
+    getShuffleDependencies(rdd).map {
+        //把每一个shuffle都转换成新的阶段
+        shuffleDep => getOrCreateShuffleMapStage(shuffleDep, firstJobId)
+    }.toList
+}
+def getShuffleDependencies {
+    ...
+    val parents = new HashSet[ShuffleDependency[_,_,_]]
+    val waitingForVisit = new ListBuffer[RDD[_]]
+    //遍历依赖树
+    waitingForVisit += rdd 
+    while(waitingForVisit.nonEmpty) {
+        ...
+        //判断是否是shuffle依赖
+        //是的话把shuffle依赖加进parents中
+        //不是的话继续将dependency入队，继续遍历
+    }
+    //最后返回parents
+}
+def getOrCreateShuffleMapStage {
+    val stage = new ShuffleMapStage()
+}
+```
+
+当RDD中存在shuffle依赖时，会自动增加一个stage
+
+stage数 = shuffle数 + 1
+
+resultStage数 = 1，最后需要执行的阶段
+
+### 任务划分
+
+* Application：初始化一个sc即生成一个App
+* Job：一个action算子就生成一个job
+* Stage：stage等于宽依赖（shuffle）个数加1
+* Task：一个stage中，最后一个RDD的分区数就是task的个数
+
+app -> job -> stage -> task 每一层都是1对n关系
+
+#### Job
+
+```scala
+DAGScheduler.scala
+def handleJobSubmitted() {
+    ...
+    try {
+        finalStage = createResultStage()
+    }
+    ...submitStage(finalStage)
+}
+def submitStage(stage: Stage) {
+ 	//是否有上一级阶段
+    submitMissingTasks(stage, jobId.get)
+}
+//call when stage's parents are available and we can now do its tasks
+def submitMissingTasks() {
+    ...
+    //当前阶段中所有的task
+    val tasks: Seq[Task[_]] = try {
+        //匹配stage类型
+    }
+}
+```
+
+### 分区器
+
+```scala
+val parRDD = rdd.partitionBy(new MyPartitioner)
+//main函数外
+//自定义分区器
+class MyPartition extends Partitioner {
+    override def numPartitions: Int = 3
+    //根据数据的key值返回数据所在的分区索引（分区号），从0开始
+    override def getPartition(key: Any): Int = {
+        key match {
+            case "nba" => 0
+            case "wnba" => 1
+            case _ => 2
+        }
+    }
+}
+```
+
+### 累加器
+
+```scala
+var sum = 0
+//val i: Int = rdd.reduce(_+_)
+rdd.foreach(
+	num => {
+        sum += num
+    }
+)
+//有问题，因为实际是分布式计算，在exe计算完后，exe端的sum变量不会返回给driver，而输出是在driver输出
+//这时就需要累加器，在计算完毕后可以把结果返回给driver
+```
+
+累加器用来把exe端变量信息聚合到driver端，在driver程序中定义的变量，在exe端的每个task都会得到这个变量的一份新的副本，每个task更新这些副本的值后，传回driver端进行merge。
+
+```scala
+val sumAcc = sc.longAccumulator(name="sum")
+rdd.foreach(
+	num => {
+        sumAcc.add(num)
+    }
+)
+println(sumAcc.value)
+//有多种累加器类型，包括集合类型
+```
+
+* 少加
+
+  如果不是action算子，则不会执行累加器
+
+* 多加
+
+  累加器是全局共享的
+
+  算子后多调用一次action算子，则会多算
+
+“只写”代表exe之间不能互相访问累加器的值
+
+**技巧点** 累加器也可以代替shuffle
+
+WordCount
+
+```scala
+val rdd = sc.makeRDD(List("hello","spark","hello"))
+//rdd.map((_,1)),reduceByKey(_+_)
+
+//创建累加器对象
+val wcAcc = new MyAccumulator()
+//向spark进行注册
+sc.register(wcAcc, name="wordCountAcc")
+rdd.foreach(
+    word => {
+        wcAcc.add(word)
+    }
+)
+println(wcAcc.value)
+
+//main外面
+//继承的Accu...需要定义泛型
+//IN: 单词用String表示
+//OUT: map键值对
+class MyAccumulator extends AccumulatorV2[String,mutable.Map[String,Long]] {
+    private var wcMap = mutable.Map[String, Long]()
+    //判断是否为初始状态
+    override def isZero: Boolean = {
+        wcMap.isEmpty //为空就是初始状态
+    }
+    override def copy(): AccumulatorV2[String,mutable.Map[String,Long]] = {
+        new MyAccumulator()
+    }
+    override def reset(): Unit = {
+        wcMap.clear()
+    }
+    //获取累加器需要计算的值
+    override def add(word: String): Unit = {
+        //原来的 + 当前出现1次
+        val newCnt = wcMap.getOrElse(word, 0L) + 1
+        wcMap.update(word, newCnt)
+    }
+    //driver合并多个累加器
+    override def merge(other: AccumulatorV2[String,mutable.Map[String,Long]]): Unit = {
+        val map1 = this.wcMap
+        val map2 = other.value
+        map2.foreach{
+            case (word,count) => {
+                val newCount = map1.getOrElse(word,0L)+count
+                map1.update(word,newCount)
+            }
+        }
+    }
+    //获取累加器结果
+    override def value: mutable.Map[String, Long] = {
+        wcMap
+    }
+}
+```
+
+### 广播变量
+
+可以代替join（join包含笛卡尔积以及shuffle）
+
+```scala
+val rdd1 = sc.makeRDD(List(
+	("a",1),("b",2),("c",3)
+))
+//val rdd2 = sc.makeRDD(List(
+//	("a",4),("b",5),("c",6)
+//))
+
+//val joinRDD:RDD[(String,(Int,Int))] = rdd1.join(rdd2)
+//joinRDD.collect().foreach(println)
+
+val map = mutable.Map(("a",4),("b",5),("c",6))
+rdd1.map{
+    case (w,c) => {
+        val l:Int = map.getOrElse(w,0)
+        (w,(c,l))
+    }
+}.collect().foreach(...)
+//以上方法可以代替join，避免笛卡尔积和shuffle
+//但是数据量很多的话，每个task里都需要用到map
+```
+
+数据量很多的话，每个task里都需要用到map
+
+10个分区（task），但exe只有1个，只有1个cpu
+
+假设1个map有100万条数据，则10个task共有1000万条数据
+
+其中这900万条数据都是冗余的
+
+闭包数据都是以task为单位发送的，每个任务中包含闭包数据可能会导致一个exe中含有大量重复的数据，并且占用大量的内存
+
+**技巧点**
+
+exe其实就1个jvm，所以在启动时，会自动分配内存。完全可以将任务中的闭包数据放置在exe内存中，达到共享的目的
+
+但是不能可改，否则线程不安全
+
+Spark中的广播变量就可以将闭包的数据保存在exe的内存中
+
+广播变量不能更改
+
+```scala
+val rdd1 = sc.makeRDD(List(
+	("a",1),("b",2),("c",3)
+))
+val map = mutable.Map(("a",4),("b",5),("c",6))
+//封装广播变量
+val bc: Broadcast[mutable.Map[String,Int]] = sc.broadcast(map)
+rdd1.map{
+    case (w,c) => {
+        //访问广播变量
+        val l:Int = bc.value.getOrElse(w,0)
+        (w,(c,l))
+    }
+}.collect().foreach(...)
+```
+
