@@ -1056,3 +1056,44 @@ rdd1.map{
 }.collect().foreach(...)
 ```
 
+### 优化
+
+**技巧点**
+
+**1. **存在大量的shuffle（reduceByKey），spark会提供优化，缓存，自动cache，不需要重复读取。所以有多个shuffle来源于同一个数据源，则性能不会差太多
+
+**2. **读取源数据后，转换成合适的数据结构
+
+```scala
+//合适的数据结构可以减少很多操作
+val actionRDD = sc.textFile(path)
+//点击的场合(id, (1,0,0))
+//下单的场合(id, (0,1,0))
+//支付的场合(id, (0,0,1))
+val flatRDD:RDD[(String,(Int,Int,Int))] = actionRDD.flatMap( //因为一行可能会拆分成多行
+    			  //注意flatMap返回的是List的迭代器
+	action => {
+        val datas = action.split("_")
+        if (datas(6)!="-1") {
+            List((datas(6),(1,0,0)))
+        } else if (datas(8)!="null") {
+            val ids = datas(8).split(",")
+            ids.map(id=>(id,(0,1,0)))
+        } else if (datas(10)!="null"){
+            val ids = datas(10).split(",")
+            ids.map(id=>(id,(0,0,1)))
+        } else {
+            Nil
+        }
+    }
+)
+val analysisRDD = flatRDD.reduceByKey(
+	(t1, t2) => {
+        (t1._1+t2._1, t1._2+t2._2, t1._3+t2._3)
+    }
+)
+val resultRDD = analysisRDD.sortBy(_._2, false).take(num=10)
+```
+
+**3. **累加器减少shuffle
+
