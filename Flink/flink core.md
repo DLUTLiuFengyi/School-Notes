@@ -217,7 +217,9 @@ wordcount，6个任务，并行度为2，跑不起来；若是改成并行度为
 
 ##### Slot
 
-按照flink内存去划分，目前flink的slot对cpu没有隔离**（技巧）**
+按照flink内存去划分
+
+**技巧：**目前flink的slot对cpu没有隔离
 
 TM直接把内存化成三等份，即是三个slot
 
@@ -263,12 +265,129 @@ dataflow类似DAG，一个或多个source，一个或多个sink
 
 * JobGraph
 
+  合并
+
   client上生成
 
 * ExecutionGraph
+
+   根据并行度把每一个任务拆开，数据从哪个子任务来、发送给哪个子任务
 
   JM上生成
 
 * 物理执行图
 
   task上执行
+
+#### 数据传输
+
+算子间传输数据形式可能是one-to-one，也可能是redistributing
+
+* one-to-one
+
+  下一个算子的子任务看到的元素的个数以及和顺序跟上一个算子的子任务生产的元素的个数、顺序相同
+
+* redistributing
+
+  stream的分区会发生改变。每一个算子的子任务依据所选择的transformation发送数据到不同的目标任务。
+
+  例如keyby基于hashcode重分区、而broadcast和rebalance会重新分区，这些算子都会引起redistribute过程，而redistribute过程就类似于spark中的shuffle过程。
+
+  上下游并行度不同也会产生redistribution，策略：**轮询**地发送到下游每一个并行子任务
+
+#### 任务链
+
+优化技术，可以减少本地通信开销
+
+执行条件
+
+* 并行度相同
+* one-to-one
+
+通过本地转发（local forward）的方式进行连接
+
+相同并行度的one-to-one操作，这样相连的算子连接在一起形成一个task，原来的算子成为里面的subtask
+
+##### 解除任务链
+
+在某一步操作中有一个很复杂的算子，需要将其从任务链中拆出来，单独分配大并行度
+
+```scala
+.filter(...).disableChaining()//filter前后都断开 
+```
+
+从某个算子开始，算子前是一条chain，算子及算子后是另一条chain
+
+```scaal
+.map(...).startNewChain()
+```
+
+让某些任务独享自己的slot
+
+```scala
+.flatMap(...).slotSharingGroup("a")//在a组里的算子都分配在一个slot中，其他组的算子一定不在这个slot
+```
+
+**技巧：**组的分配怎么分配？
+
+默认所有算子都在一个组里
+
+关闭任务链
+
+```scala
+env.disableOperatorChaining()
+```
+
+### 执行环境
+
+表示当前执行程序的上下文
+
+```scala
+getExecutionEnvironment//会自动判断返回的是本地还是集群的环境
+```
+
+```scala
+//本地环境，需要设置并行度
+StreamExe...Env.createLocalEnvironment(1)
+//集群环境，并行度根据flink-conf.yaml中配置确定
+Exe...Env.createRemoteEnvironment("jobmanager-hostname",6123,".../xxx.jar")
+```
+
+### API
+
+#### 数据类型
+
+数据对象需要被序列化和反序列化，网络传输，或从状态后端、检查点和保存点读取它们。
+
+Flink支持java和scala中所有常见数据类型
+
+#### UDF
+
+Flink暴露了所有udf函数的接口（实现方式为接口或者抽象类），如MapFunction，FilterFunction，ProcessFunction
+
+```scala
+class MyFilterFunction extends FilterFunction[String]
+```
+
+#### RichFunction
+
+富函数可以获取到运行时上下文和生命周期
+
+#### sink
+
+flink底层不像spark那样有RDD，能使用foreach迭代来对外输出，因此只能sink，而flink需要考虑分布式系统的正确性（某些节点停了该怎么做）
+
+因此建议用标准sink
+
+* Kafka
+* Cassandra
+* Elasticsearch
+* HDFS
+* RabbitMQ
+
+Apache Bahir：为flink、spark等提供连接支持的包
+
+* Flume
+* Redis
+* Akka
+* Netty
