@@ -1,4 +1,8 @@
-#### RAPIDS
+---
+typora-root-url: pic
+---
+
+### RAPIDS
 
 基于CUDA的开源GPU加速库
 
@@ -12,7 +16,35 @@
 
 批处理方面主要针对提供Spark SQL的GPU加速
 
-#### ACSP
+#### Accelerating Apache Spark 3.0 with GPUs and RAPIDS
+
+<img src="/rapids1.png" style="zoom:50%;" />
+
+##### data structure
+
+a powerful GPU DataFrame based on [Apache Arrow](http://arrow.apache.org/) data structures
+
+columnar memory format, optimized for data locality, to accelerate analytical processing performance on modern CPUs or GPUs
+
+With the GPU DataFrame, batches of column values from multiple records take advantage of modern GPU designs and accelerate reading, queries, and writing.
+
+With a physical plan for CPUs, the DataFrame data is transformed into RDD row format and usually processed one row at a time. Spark supports columnar batch, but in Spark 2.x only the Vectorized Parquet and ORC readers use it. The RAPIDS plugin extends columnar batch processing on GPUs to most Spark operations.
+
+##### shuffles accelerate - UCX
+
+<img src="/rapids2.png" style="zoom:50%;" />
+
+The new Spark shuffle implementation is built upon the GPU-accelerated [Unified Communication X (UCX)](https://www.openucx.org/) library to dramatically optimize the data transfer between Spark processes. UCX exposes a set of abstract communication primitives which utilize the best of available hardware resources and offloads, including RDMA, TCP, GPUs, shared memory, and network atomic operations.
+
+In the new shuffle process, as much data as possible is first cached on the GPU. This means no shuffling of data for the next task on that GPU. Next, if GPUs are on the same node and connected with NVIDIA NVLink high-speed interconnect, data is transferred at 300 GB/s. If GPUs are on different nodes, RDMA allows GPUs to communicate directly with each other, across nodes, at up to 100 Gb/s. Each of these cases avoids traffic on the PCI-e bus and CPU.
+
+<img src="/rapids3.png" style="zoom:50%;" />
+
+If the shuffle data cannot all be cached locally, it is first pushed to host memory and then spilled to disk when that is exhausted. Fetching data from host memory avoids PCI bus traffic by using RDMA transfer. 
+
+<img src="/rapids4.png" style="zoom:50%;" />
+
+### ACSP
 
 阿里云在Spark RAPIDS plug-in基础上进行的优化
 
@@ -28,7 +60,7 @@
 
 测试CPU与GPU优化的性能比较（性能 + 价格 -> 性价比）
 
-##### 适用场景
+#### 适用场景
 
 传统spark应用场景即可
 
@@ -60,7 +92,7 @@ GPU擅长的SQL运算
 
 * 数据编码（创建Parquet和ORC文件, 读取csv）
 
-##### 阿里云自研RAPIDS Spark Operator
+#### 阿里云自研RAPIDS Spark Operator
 
 在kubernetes上
 
@@ -69,6 +101,8 @@ GPU擅长的SQL运算
 单独收费产品 需要深度定制 尚不支持RDMA
 
 ---
+
+### 某博客
 
 https://blog.csdn.net/jiede1/article/details/85214278
 
