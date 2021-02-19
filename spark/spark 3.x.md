@@ -2,6 +2,12 @@
 typora-root-url: pic
 ---
 
+## Spark 3.0 release
+
+https://spark.apache.org/releases/spark-release-3-0-0.html
+
+
+
 ## GPU
 
 ### Introduce
@@ -71,6 +77,15 @@ SPARK-27396
 
 ## Project Hydrogen
 
+本项目思想来源：
+
+* TensorFrames
+* BigDL
+* Apache Arrow
+* Pandas UDF
+* Spark GPU support
+* MPI
+
 <img src="/spark+ai.png" style="zoom:50%;" />
 
 <img src="/spark+ai2.png" style="zoom:50%;" />
@@ -118,7 +133,7 @@ So a distributed DL job can run as a Spark job.
 rdd.barrier().mapPartitions(train)
 ```
 
-#### demo
+#### Demo
 
 ```python
 #准备拿2个主机进行训练
@@ -137,6 +152,34 @@ model = digits \
 SPARK-24579
 
 using a standard interface for data exchange to simplify the integrations without introducing much overhead
+
+#### Source to Destination
+
+<img src="/../gpu/pic/hydrogen1.png" style="zoom:60%;" />
+
+<img src="/../gpu/pic/hydrogen2.png" style="zoom:60%;" />
+
+#### Accelerator-aware scheduling (SPIP)
+
+为了在集群中使用加速资源（GPU FPGA）或者使用multiple加速资源in a multi-task节点，Spark需要知道每个节点上的加速资源
+
+SPARK-24615
+
+```scala
+rdd.accelerated
+.by("/gpu/p100")
+.numPerTask(2)
+.required // or .optional
+```
+
+when multiple tasks are scheduled on the same node with multiple GPUs, each task knows which GPUs are assigned to avoid crashing into each other (API pending discussion)
+
+```scala
+//inside a task closure
+val gpus = context.getAcceleratorInfos()
+```
+
+
 
 ## Notes
 

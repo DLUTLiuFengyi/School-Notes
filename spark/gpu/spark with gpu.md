@@ -20,7 +20,7 @@ typora-root-url: pic
 
 <img src="/rapids1.png" style="zoom:50%;" />
 
-##### data structure
+##### Data Structure
 
 a powerful GPU DataFrame based on [Apache Arrow](http://arrow.apache.org/) data structures
 
@@ -30,19 +30,64 @@ With the GPU DataFrame, batches of column values from multiple records take adva
 
 With a physical plan for CPUs, the DataFrame data is transformed into RDD row format and usually processed one row at a time. Spark supports columnar batch, but in Spark 2.x only the Vectorized Parquet and ORC readers use it. The RAPIDS plugin extends columnar batch processing on GPUs to most Spark operations.
 
-##### shuffles accelerate - UCX
+##### Shuffles Accelerate - UCX
 
 <img src="/rapids2.png" style="zoom:50%;" />
 
-The new Spark shuffle implementation is built upon the GPU-accelerated [Unified Communication X (UCX)](https://www.openucx.org/) library to dramatically optimize the data transfer between Spark processes. UCX exposes a set of abstract communication primitives which utilize the best of available hardware resources and offloads, including RDMA, TCP, GPUs, shared memory, and network atomic operations.
+The new Spark shuffle implementation is built upon the GPU-accelerated [Unified Communication X (UCX)](https://www.openucx.org/) library to dramatically optimize the data transfer between Spark processes. 
 
-In the new shuffle process, as much data as possible is first cached on the GPU. This means no shuffling of data for the next task on that GPU. Next, if GPUs are on the same node and connected with NVIDIA NVLink high-speed interconnect, data is transferred at 300 GB/s. If GPUs are on different nodes, RDMA allows GPUs to communicate directly with each other, across nodes, at up to 100 Gb/s. Each of these cases avoids traffic on the PCI-e bus and CPU.
+UCX exposes a set of abstract communication primitives which utilize the best of available hardware resources and offloads:
+
+* RDMA
+* TCP
+* GPUs
+* shared memory
+* and network atomic operations
+
+In the new shuffle process, as much data as possible is first **cached on the GPU**. This means no shuffling of data for the next task on that GPU. 
+
+Next
+
+* If GPUs are on the same node and connected with NVIDIA NVLink high-speed interconnect, data is transferred at 300 GB/s. 
+
+* If GPUs are on different nodes, **RDMA** allows GPUs to communicate directly with each other, across nodes, at up to 100 Gb/s. Each of these cases avoids traffic on the PCI-e bus and CPU. （应该算是零拷贝）
 
 <img src="/rapids3.png" style="zoom:50%;" />
 
-If the shuffle data cannot all be cached locally, it is first pushed to host memory and then spilled to disk when that is exhausted. Fetching data from host memory avoids PCI bus traffic by using RDMA transfer. 
+If the shuffle data cannot all be cached locally:
+
+* it is first pushed to host memory 
+* and then spilled to disk when that is exhausted
+
+**Fetching data from host memory avoids PCI bus traffic by using RDMA** transfer. 
 
 <img src="/rapids4.png" style="zoom:50%;" />
+
+##### GPU-aware scheduling in Spark
+
+This allows Spark 3.0 can schedule executors with a specified number of GPUs, and you can specify **how many GPUs each task requires**. 
+
+Spark conveys these resource requests to the underlying cluster manager, Kubernetes, YARN, or standalone. You can also configure a discovery script to detect which GPUs were assigned by the cluster manager. 
+
+<img src="/rapids5.png" style="zoom:75%;" />
+
+Figure 14 shows an example of a flow for GPU scheduling. 
+
+* The user submits an application with a GPU resource configuration discovery script. 
+* Spark starts the driver, which uses the configuration to pass on to the cluster manager, **to request a container with a specified amount of resources and GPUs**(spark源码解析)
+* The cluster manager returns the container(还是跟源码解析里一样). 
+* Spark launches the container(源码again). 
+* When the executor starts, it runs the discovery script. 
+* Spark sends that information back to the driver and the driver can then use that information to schedule tasks to GPUs.
+
+**笔记：** 
+
+* 其实还是没说具体根据什么调度？把GPU地址或GPU内部单元的地址交给tensorflow等ai框架让它们来调度使用GPU？
+* 现在GPU加速的Spark ML只实现了XGBoost
+
+
+
+
 
 ### ACSP
 
