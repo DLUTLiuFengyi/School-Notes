@@ -2,6 +2,10 @@
 typora-root-url: pic
 ---
 
+### 总览
+
+
+
 ### 环境准备
 
 特指yarn集群
@@ -527,27 +531,258 @@ Netty，一个通信框架，支持AIO（异步通信）
 
   Linux采用epoll方式模仿AIO
 
+```scala
+NettyUtils.scala
+/** Returns the correct ServerSocketChannel class based on IOMode. */
+  public static Class<? extends ServerChannel> getServerChannelClass(IOMode mode) {
+    switch (mode) {
+      case NIO:
+        return NioServerSocketChannel.class;
+      case EPOLL:
+        return EpollServerSocketChannel.class;
+      default:
+        throw new IllegalArgumentException("Unknown io mode: " + mode);
+    }
+  }
+```
 
+* NettyRpcEnv
+* RpcEndpoint 用于发数据
+* RpcEndpointRef 用于收数据
+  * **收件箱** Inbox 接收到的数据放在收件箱中
+  * **发件箱** outboxes
 
-#### Driver => Executor
+<img src="/io1.png" style="zoom:70%;" />
 
-#### Executor => Driver
+还有多个transport client，与sever建立连接发送数据
 
-#### Executor => Executor
+最后，最基本的通信环境如图
 
+<img src="/io2.png" style="zoom:70%;" />
 
+基于Netty的新RPC框架借鉴了Akka的设计，基于actor模型
+
+Actor模型类似于收发邮件
+
+<img src="/io3.png" style="zoom:70%;" />
+
+![](/io4.png)
+
+Endpoint(Client/Master/Worker)有1个InBox和n个OutBox（取决于此EP要与几个EP通信），Endpoint接收到的消息被写入InBox，发送出去的消息写入OutBox并被发送到其他EP的IB中。
+
+每个节点都有自己的通信环境
+
+#### Driver与Executor
+
+```scala
+//Driver
+class DriverEndpoint extends IsolatedRpcEndpoint
+//Executor
+class CoarseGrainedExecutorBackend extends IsolatedRpcEndpoint
+```
+
+#### 通信架构图
+
+![](/io5.png)
+
+* TClient向TServer发送消息（Netty网络通信）
+* 消息从TS传出被Dispatcher接收到
+* DP传到收件箱Inbox（本地指令）
+* inbox进行消息，处理邮件（消费FIFO）
+* （RpcEndpoint）处理过程中需要返回给DP（SEND）
+* DP分发给Outbox（远程指令）
+* OutboxMessage -> 转发给TClient
+
+##### RpcEndpoint
+
+RPC通信终端，spark对每个节点（Client/Master/Worker）都称为一个终端，且都实现RpcEndpoint接口，内部根据不同的消息和不同的业务处理，如果需要发送（询问）则调用Dispatcher。在spark中所有的终端都存在生命周期：
+
+* Constructor
+* onStart
+* receive*
+* onStop
+
+##### RpcEnv
+
+rpc上下文环境，每个rpc终端运行时依赖的上下文环境称之为RpcEnv，现在spark使用NettyRpcEnv
+
+##### Dispatcher
+
+消息分发/调度器，针对于RPC终端需要发送的远程消息或从远程RPC接收到的消息，分发到对应的指令收件箱（发件箱）。
+
+* 如果指令接收方是自己，则存入收件箱
+* 如果指令接收方不是自己，则放入发件箱
+
+##### Inbox
+
+收件箱，DP在每次向inbox存入消息时，都将对应EndpointData加入内部ReceiverQueue中，另外DP创建时会启动一个单独线程进行轮询ReceiverQueue，进行收件箱消息消费。
+
+##### RpcEndpointRef
+
+RpcEndpointRef是对远程RpcEndpoint的一个引用。当我们需要向一个具体的RpcEndpoint发送消息时，一般我们需要获取到该RpcEndpoint的引用，然后通过该应用发送消息。
+
+##### OutBox
+
+指令消息发件箱。对于当前RpcEndpoint来说，一个目标RpcEndpoint对应一个发件箱，如果向多个目标RpcEndpoint发送消息，则有多个OutBox。当消息放入Outbox后，紧接着通过TransportClient将消息发送出去。消息放入发件箱以及发送过程是在同一个线程中进行。
+
+##### RpcAddress
+
+表示远程的RpcEndpointRef的地址，Host+Port
+
+##### TransportClient
+
+Netty通信客户端，一个Outbox对应一个TransportClient，TC不断轮询Outbox，根据OB消息的receive信息，请求对应的远程TransportServer
+
+##### TransportServer
+
+Netty通信服务端，一个RpcEndpoint对应一个TransportServer，接收远程消息后调用Dispatcher分发消息至对应收发件箱
 
 
 
 ### 应用程序的执行
 
+Driver线程执行用户程序的main方法，然后把环境创建出来，执行业务逻辑。
+
+#### SparkContext
+
+内含
+
+* SparkConf  配置对象，基础环境
+* SparkEnv  环境对象，通信环境
+* SchedulerBackend  通信后台，后台是要拿来通信的，而Executor就与这个后台通信
+* TaskScheduler  task调度，专门调度task（task发给谁）
+* DAGScheduler  stage调度，stage划分及task切分
+
 #### RDD依赖
+
+Dependency.scala
 
 #### 阶段的划分
 
+```scala
+//创建stage
+createResultStage
+//获取或创建上级stage
+getOrCreateParentStages
+    getShuffleDependencies(rdd).map {
+        shuffleDep => getOrGreateShuffleMapStage(shuffleDep,firstJobId)
+    }.toList
+//获取或创建shuffleMap阶段（写磁盘之前的阶段）
+getOrCreateShuffleMapStage
+```
+
+```scala
+xxx.collect() //行动算子
+->
+RDD.scala sc.runJob()
+->
+SparkContext.scala runJob
+->
+dagScheduler.runJob
+->
+DAGScheduler.scala
+submitJob()
+->
+eventProcessLoop.post(JobSubmitted())//事件JobSubmitted
+->
+EventLoop.scala
+//往eventQueue中放事件
+eventQueue.put(event)
+->
+eventThread = new Thread(name)
+run() //此方法从eventQueue中取出事件
+val event = eventQueue.take()
+//取出事件后
+onReceive(event)//在DAGScheduler中有实现
+->
+//the main event loop of the DAG scheduler
+def onReceive(event)
+doOnReceive()
+->
+//往事件队列中发一条消息，收到消息后，对event作一个模式匹配
+event match {
+    case JobSubmitted() => dagScheduler.handleJobSubmitted()
+}
+->
+def handleJobSubmitted() {
+    //进行阶段的划分
+    finalStage = createResultStage()
+}
+->
+val stage = new ResultStage(id,rdd,func,partitions,parents,jobId,callSite)
+//此rdd就是当前处理的rdd (this)
+//此parents是
+val parents = getOrCreateParentStages(rdd, jobId)
+->
+def getOrCreateParentStages(rdd:RDD[_], firstJobId:Int):List[Stage] = {
+    //此rdd是最后的rdd (ShuffleRDD)
+    getShuffleDependencies(rdd).map {
+        shuffleDep => getOrGreateShuffleMapStage(shuffleDep,firstJobId)
+    }.toList
+}
+->
+//获取shuffle依赖
+def getShuffleDependencies()
+//核心逻辑：判断RDD中的依赖关系是不是shuffle依赖
+toVisit.dependencies.foreach {
+    case shuffleDep: ShuffleDependency[_,_,_] => parants += shuffleDep
+}
+
+//接上面的getOrGreateShuffleMapStage函数
+createShuffleMapStage(shuffleDep,firstJobId)
+->
+val stage = new ShuffleMapStage(id,rdd,numTasks,parents,jobId,rdd.creationSite,shuffleDep,...)
+//此rdd是当前依赖的rdd，即ShuffleRDD的上一个rdd
+val rdd = shuffleDep.rdd
+
+//看上一个rdd有没有shuffle，有的话就再创建一个stage，然后把rdd穿过去再看上一个
+
+//shuffleMapStage执行完毕后写磁盘，然后ResultStage读磁盘
+```
+
+<img src="/stage.png" style="zoom:50%;" />
+
 #### 任务的划分
 
+```scala
+DAGScheduler.scala
+val job = new ActiveJob(jobId,finalStage,...)
+...
+submitStage(finalStage)
+->
+getMissingParentStage()
+//看看有没有上一级，如果有，则递归调用这个函数
+...
+//接收任务
+val tasks: Seq[Task[_]] = try {
+    stage match {
+        //如果是ShuffleMapStage
+        //计算分区
+        partitionsToCompute.map {
+            //map，把每一个id变成一个task
+            //真正创建task就是在这里，有几个task就返回几个对象
+            new ShuffleMapTask(stage.id,stage.latestInfo.attemptNumber,...)
+        }
+    }
+}
+
+partitionsToCompute
+->
+val partitionsToCompute:Seq[Int] = stage.findMissingPartitions //是一个分区编号集合，如0,1,2
+->
+ShuffleMapStage.scala
+def findMissingPartitions {
+    //看看当前shuffleId中有没有这个分区
+    //如果有，就取过来
+    //如果没有，就是0到partition数量，是一个集合，每一个数字就变成一个task
+}
+```
+
+stage.png中当前ResultStage有6个task（3+3）
+
 #### 任务的调度
+
+
 
 #### 任务的执行
 
