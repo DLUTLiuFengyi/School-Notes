@@ -1,3 +1,7 @@
+---
+typora-root-url: pic
+---
+
 ## Flink
 
 ### 流式处理
@@ -392,5 +396,71 @@ Apache Bahir：为flink、spark等提供连接支持的包
 * Akka
 * Netty
 
-#### window
+### 时间语义和watermark
+
+<img src="/time1.png" style="zoom:60%;" />
+
+往往更关心event time
+
+可以在代码中对env调用`setStreamTimeCharacteristic`设置流的时间特性
+
+```scala
+val env = ...
+env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
+```
+
+flink以event time模式处理数据时，会根据数据里的时间戳来处理基于时间的算子
+
+由于网络、分布式等原因，会导致乱序数据的产生
+
+**思考** 时间窗口延迟要等多久？
+
+根据时间戳+event time来判断，带着9点02分时间戳的数据来了，则认为现在时间到9点02分了，而系统现在到几点了并不重要
+
+根据接收到数据的时间戳变大来更新当前时间。例如窗口长度为5秒，则时间戳为5的数据到来了，则可以关闭窗口
+
+#### Watermark
+
+注意，下面讨论的时间戳是用来决定何时关闭窗口（桶）的
+
+##### 乱序数据
+
+引入一个整体的时间判断机制，让时间稍微滞后。
+
+如5秒的时间戳来了后，还不能认为已进行到5秒
+
+延迟触发
+
+正确处理乱序数据：watermark结合window
+
+数据流中的watermark用于表示时间戳小于watermark的数据，都已经到达了，因此windows的执行也是由watermark触发的
+
+lambda架构：先用实时流处理系统输出近似结果，再等数据都到了之后，用批处理输出准确结果。**而watermark就将流处理与批处理的选择交给程序去权衡**，wm越小，实时性越好、延迟性越小，wm设成0就相当于来了什么数据，就按当前这个数据的时间戳确定时间
+
+wm直接插入到流中，相当于一条特殊的数据记录，必须单调递增
+
+**取值** 取当前所有已经到达数据的时间戳的最大值再减去一个固定的值
+
+窗口是左闭右开的
+
+延迟 = 乱序程度的最大值
+
+##### 分布式
+
+如果上下游有多个并行子任务：
+
+* 上游往下游传时，直接广播
+* 下游接收上游的wm时，会维护一个分区wm，自己的时钟以最慢的wm决定
+
+上游有并行任务1 2 3，假设wm是4，此时上游的1不再有4之前的数据发送给下游，但2 3有可能还要4之前的数据
+
+**解决** 在下游任务里给上游的每一个并行子任务设置一个分区watermark。那该按哪一个分区wm来定？以最慢的wm（最小的分区时钟）来定。
+
+```scala
+//从当前数据中提取时间戳并指定wm的生成方式
+//timestamp与wm通常是一起的
+val dataStream = ...
+  //.assignTimestampsAndWatermarks
+  .assignAccendingTimestamps(_.timestamp * 1000L) //保证是毫秒级时间戳
+```
 
