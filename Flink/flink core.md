@@ -454,6 +454,8 @@ wm直接插入到流中，相当于一条特殊的数据记录，必须单调递
 
 上游有并行任务1 2 3，假设wm是4，此时上游的1不再有4之前的数据发送给下游，但2 3有可能还要4之前的数据
 
+<img src="/wm.png" style="zoom:67%;" />
+
 **解决** 在下游任务里给上游的每一个并行子任务设置一个分区watermark。那该按哪一个分区wm来定？以最慢的wm（最小的分区时钟）来定。
 
 ```scala
@@ -462,5 +464,139 @@ wm直接插入到流中，相当于一条特殊的数据记录，必须单调递
 val dataStream = ...
   //.assignTimestampsAndWatermarks
   .assignAccendingTimestamps(_.timestamp * 1000L) //保证是毫秒级时间戳
+```
+
+* 周期性
+
+  数据密集 短时间内大量数据涌入 大数据常见场景
+
+* 间断性（来一个数据生成一个wm）
+
+  数据稀疏
+
+#### 窗口起点的确定
+
+```java
+TumblingProcessingTimeWindows.java
+//确定窗口从哪开始
+public Collection<TimeWindow> assignWindows
+TimeWindow.java
+//确定窗口从哪开始，输出是window起始位置
+public static long getWindowStartWithOffset(timestamp,offset,windowSize) {
+    return timestamp-(timestamp-offset+windowSize)%windowSize
+    //假设时间戳是199
+    // 199-(199-0+15)%15=195
+    // 则第一个窗口是[195-210)
+}
+```
+
+### 状态管理
+
+* operator state
+
+* keyed state
+
+* state backend
+
+先清楚flink定位：分布式计算框架，对有状态数据流进行计算
+
+<img src="/state1.png" style="zoom:67%;" />
+
+flink中的状态：
+
+* 由一个任务维护、并用来计算某个结果的所有数据，都属于这个任务的**状态**
+* 可认为状态就是一个**本地变量**，可被任务的业务逻辑访问
+* flink会进行状态管理，包括状态一致性、故障处理以及高效存储和访问，以便开发人员专注于应用程序的逻辑
+
+简单的transform操作，只跟当前数据有关，并不需要状态。而reduce、windows、min、sum操作，就需要状态（依赖于之前所有数据的统计）
+
+每一个state必须跟特定的算子相关联
+
+为了使运行时的flink了解算子状态，算子需要预先在运行环境中**注册**其状态
+
+* operator state
+
+  作用范围（变量的作用域）限定为算子任务
+
+  假设有3个并行的子任务，则每一个并行子任务中都有一块内存去存状态，而互相无法访问（除非是特殊的广播状态），因此算子状态作用访问是当前任务中的一部分即当前同一个分区（3个中的1个）
+
+* keyed state
+
+  根据输入数据流中定义的key来维护和访问
+
+  在同一个分区中按照不同的key会将内存继续划分成不同部分，不同的key访问不同的状态（内存分区）
+
+#### 算子状态
+
+由同一并行任务所处理的所有数据都可以访问到相同的状态
+
+不能由相同或不同算子的另一个子任务访问
+
+数据结构
+
+* list state
+
+  将状态表示为一组数据的列表
+
+  * 并行度调整 2->3
+
+    把list拆开
+
+  * 故障恢复
+
+    保存的时候拼起来，最后恢复时再打散
+
+* union list state
+
+  将状态表示为一组数据的列表，与常规list state区别在发生故障或者从保存点启动app时如何恢复
+
+  * 故障恢复
+
+    把之前每一个并行子任务的算子状态都保存了一份，然后把状态作动态调整
+
+* broadcast state
+
+  如果一个算子有多个任务，而每项任务状态都相同，则这种情况适用于广播状态
+
+#### 键控状态
+
+<img src="/state2.png" style="zoom:67%;" />
+
+根据输入流中定义的key来维护和访问
+
+flink为每一个key维护一个state实例，并将具有相同建的所有数据都分区到同一个算子任务中，这个任务会维护和处理这个key对应的状态
+
+当一个任务处理一条数据时，它会自动将状态的访问范围限定为当前数据的key
+
+数据结构
+
+* value state
+
+  状态表示为单个值
+
+* list state
+
+* map state
+
+  状态表示为一组键值对
+
+* reducing state / aggregating sate
+
+  状态表示为一个用于聚合操作的列表
+
+```scala
+//声明一个key state
+lazy val lastTemp: ValueState[Double] = getRuntimeContext.getState[Double] {
+    //state的描述器
+    //当前状态名称 当前状态类型
+    new ValueStateDescriptor[Double]("lastTemp",classOf[Double])
+}
+//rich function可以获取到运行时上下文以及生命周期等方法
+
+//读取state
+val prevTemp = lastTemp.value()
+
+//对state赋值
+lastTemp.update(value.temperature)
 ```
 
