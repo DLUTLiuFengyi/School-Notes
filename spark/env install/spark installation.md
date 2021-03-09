@@ -1,4 +1,4 @@
-### 服务器安装spark
+### 服务器安装spark集群
 
 下载spark-2.4.5-bin-hadoop2.7.tgz
 
@@ -10,15 +10,19 @@ server主机
 tar -zxvf spark-2.4.5-bin-hadoop2.7.tgz
 
 cd spark-2.4.5-bin-hadoop2.7/conf/
+#将官方的模板文件改名
 mv slaves.template slaves
 vim slaves # 添加slave主机ip
 
+#将官方的模板文件改名
 mv spark-env.sh.template spark-env.sh
 vim spark-env.sh
 SPARK_MASTER_IP=xxx
 SPARK_MASTER_PORT=8077 # defualt 7077
 SPARK_MASTER_WEBUI_PORT=9080 # default 8080
 
+#将压缩包复制粘贴到另两台主机
+#另两台进行同样的配置
 cd ~
 scp -r spark-2.4.5-bin-hadoop2.7/ xxx1:/home/xxx/
 scp -r spark-2.4.5-bin-hadoop2.7/ xxx2:/home/xxx/
@@ -53,7 +57,7 @@ vim slaves
 
 
 
-#### IDEA连接远程Spark集群
+#### IDEA连接远程Spark集群（现在做这个没意义）
 
 https://blog.csdn.net/weixin_38493025/article/details/103365712?utm_medium=distribute.pc_relevant.none-task-blog-BlogCommendFromBaidu-1.control&depth_1-utm_source=distribute.pc_relevant.none-task-blog-BlogCommendFromBaidu-1.control
 

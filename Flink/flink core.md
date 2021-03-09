@@ -583,6 +583,8 @@ flink为每一个key维护一个state实例，并将具有相同建的所有数�
 * reducing state / aggregating sate
 
   状态表示为一个用于聚合操作的列表
+  
+  reduce, sum, min, max底层就是聚合状态
 
 ```scala
 //声明一个key state
@@ -600,3 +602,253 @@ val prevTemp = lastTemp.value()
 lastTemp.update(value.temperature)
 ```
 
+#### 状态后端
+
+每个并行任务都会在本地维护其状态，以确保快速的状态访问
+
+状态的存储、访问、维护由一个可插入的组件决定，这个组件叫**状态后端**state backend
+
+状态后端负责
+
+* 本地状态管理
+* 将checkpoint状态写入远程存储
+
+**分类**
+
+##### MemoryStateBackend
+
+内存级，将键控状态作为内存中对象进行管理，将它们存储在TaskManager的jvm堆上，将checkpoint存储在JobManager的内存中
+
+快速、低延迟，但不稳定
+
+生成环境不用，用于测试环境
+
+##### FsStateBackend
+
+将checkpoint存到远程的持久化文件系统中，将本地状态跟MemorySB一样存在TaskManager的jvm堆上
+
+内存级本地访问速度，更好容错
+
+集群启动时默认选择此模式
+
+```scala
+env.setStateBackend(new FsStateBackend(...)) //参数是文件路径，可以是HDFS
+```
+
+##### RocksDBStateBackend
+
+将**所有**状态序列化后存入本地的RocksDB中存储
+
+内嵌的kv数据库，读写快，也可以落盘，不受到内存容量限制，但访问性能受到影响
+
+状态多的时候选择此模式
+
+```scala
+env.setStateBackend(new RocksDBStateBackend(...)) //参数是uri
+//可选的参数 增量化checkpoint（基于上一次存盘的checkpoint）
+```
+
+### 容错机制
+
+状态不丢，接下来在之前基础上把数据重新读进来
+
+* checkpoint
+
+  自动存盘
+
+* cp算法
+
+* save points
+
+  手动存盘
+
+#### 一致性检查点checkpoint
+
+在某个时间点把所有状态保存起来，等到出现故障、要恢复了，再把状态挨个读出来
+
+这个时间点应该是所有任务都恰好处理完一个相同的输入数据的时候
+
+<img src="/rongcuo1.png" style="zoom:50%;" />
+
+```txt
+奇偶分别求和，当前读取的偏移量是0-5（offset也要保存）
+如果是
+4+2=6
+3+1=4
+则会产生offset冲突
+所以要奇偶都处理完了再保存offset，也就是保存checkpoint
+```
+
+<img src="/cp1.png" style="zoom:50%;" />
+
+<img src="/cp2.png" style="zoom:50%;" />
+
+重启后是空状态，然后是加载最近一次保存的checkpoint
+
+<img src="/cp3.png" style="zoom:50%;" />
+
+注意这里的偶数和12变回了6
+
+<img src="/cp4.png" style="zoom:50%;" />
+
+#### 实现算法
+
+如何判断当前任务真的都完成了？
+
+上下文（当前处理到了哪里），stop-the-world，暂停应用？
+
+flink的改进
+
+* 基于 **Chandy-Lamport **算法的分布式快照
+* 将checkpoint的保存和数据处理分开，不暂停整个应用
+
+引入一个针对数据的标记机制（在数据流中加入一个标记）
+
+某某学完后，那个人就下楼拍照，最后把所有人分别拍好的照拼起来
+
+##### 检查点分界线 checkpoint barrier
+
+用来将一条流上数据按照不同的检查点分开。
+
+* 分界线之前到来的数据导致的状态更改，都会被包含在当前分界线所属的检查点中
+* 基于分界线之后的数据导致的所有更改，就会被包含在之后的检查点中
+
+JM向source发起指令：TM注意了，要进行cp操作
+
+让source往数据中插入barrier
+
+因为数据是从source中流出的
+
+**又有问题**
+
+刚刚没涉及到多个并行子任务的讨论
+
+广播？下游任务还会接收到不同上游的barrier
+
+wm等所有分区wm都达到某一个最小值
+
+b也是需要收集上游所有barrier，再选最小的
+
+<img src="/cp5.png" style="zoom:50%;" />
+
+下面的2代表1+1，5代表2+黄3，而蓝3还没有到达加法部分，所以此时该流有多种情况
+
+<img src="/cp6.png" style="zoom:50%;" />
+
+上图中，两个source任务收到指令，因此插入barrier 2
+
+注意上图中最右边的任务并没有闲着，蓝2和黄2都已经写入到sink流中
+
+然后source任务先对自己当前状态进行保存（蓝3黄4），落盘
+
+<img src="/cp7.png" style="zoom:50%;" />
+
+保存完状态蓝3黄4后，会给JM返回一个信息，JM知道source已经搞定，然后source任务会把自己插入的barrier向下游广播。这一段时间内source任务都不能读取数据，但右边的任务也没有闲着（谁做保存谁暂停，其他人不暂停）。
+
+保存的状态是蓝3黄4，而蓝3已经到下面分支并与5相加成蓝8了，而黄4还没到，因此sum even任务必须等两个流的barrier都到齐才能保存状态（barrier对齐）
+
+**注意** 对上面的分支中的sum even，如果蓝色barrier（蓝2）已经来了，即使后面蓝色数据（蓝4）来了，也必须先缓存着，不进行计算，即使现在空闲，也需要先把状态蓝3黄4处理完
+
+<img src="/cp8.png" style="zoom:50%;" />
+
+而黄4进到sum even任务了，则sum even执行，4+4=8
+
+<img src="/cp9.png" style="zoom:50%;" />
+
+sum even的状态是8（2+2+4），sum odd的状态是8（5+3）
+
+sum even左上角的蓝4是先缓存、尚未处理的数据，因此处理
+
+下游的sink1 sink2收到barrier（三角形2）之后，也会进行自己状态的保存
+
+<img src="/cp10.png" style="zoom:50%;" />
+
+所有任务都处理完成后，都通知JM，然后JM知道现在所有状态都保存成功
+
+<img src="/cp11.png" style="zoom:50%;" />
+
+当前的checkpoint正式完成
+
+#### 保存点savepoint
+
+可以自定义的镜像保存功能
+
+保存点可以认为是具有一些额外元数据的检查点
+
+* 故障恢复
+* 手动备份
+* 更新app
+* 版本迁移
+* 暂停和重启app
+
+### 状态一致性
+
+有状态的流处理，内部每个算子任务都可以有自己的状态
+
+结果要保证准确，一条数据不应该丢失，也不应该重复计算，故障恢复后重新计算的结果应该也是完全正确的
+
+#### 端到端 exactly-once
+
+* 内部保证 checkpoint
+* source端 可重设数据的读取位置
+* sink端 从故障恢复时，数据不会重复写入外部系统
+  * 幂等写入
+
+  * 事务写入
+
+    原子性
+
+    构建的事务跟checkpoint一一对应，等到cp真正完成的时候，才把所有对应的结果写入sink系统中（cp完成时，就是数据操作内部状态都已完成且外部sink已启动、后边数据一个都没操作一个都没更改）
+
+    实现方式
+
+    * 预写日志
+
+      把要sink的数据都当成状态保存，跟checkpoint捆绑
+
+      缺点是类似批处理，一次性写入
+
+    * **两阶段提交**
+
+      * 对每个cp，sink任务都启动一个事务，并将接下来所有接收的数据添加到事务中
+
+      * 然后将这些数据写入外部sink，但不提交它们，此时只是 **预提交**
+
+      * 当它收到cp完成通知时，它才正式提交事务，实现结果的真正写入
+
+      这种方式真正实现了exactly-once，它需要一个提供事务支持的外部sink系统
+
+      TwoPhaseCommitSinkFunction
+
+      跟预写日志区别是后者类似批处理思想，前者还是流处理来一个算一个，只不过在sink端用事务的角度来处理，可以撤销事务，这里事务类似checkpoint，遇到barrier就正式关闭事务并提交数据
+
+      缺点：
+
+      * 外部sink系统必须能提供事务支持
+
+      * 在收到scheckpoint完成的通知（barrier）之前，事务必须是“等待提交”状态，在故障恢复情况下，这可能需要一些时间
+
+        如果此时sink关闭事务（如超时），则未提交的数据就会丢失
+
+      * sink任务必须能够在进程失败后恢复事务
+
+      * 提交事务必须是幂等操作
+
+隔离级别：read committed
+
+**Exactly-once 两阶段提交**
+
+* 第一条数据来了后，开启一个kafka事务，正常写入kafka分区日志但标记为未提交，这就是“预提交”
+* jobmanager触发checkpoint操作，barrier从source开始向下传递，遇到barrier的算子将状态存入状态后端，并通知jobmanager
+* sink连接器接收到barrier，保存当前状态，存入checkpoint，通知JM，并开启下一阶段的事务，用于提交下个checkpoint的数据
+* JM收到所有任务的通知，发出确认信息，表示checkpoint完成
+* sink任务收到JM的确认信息，正式提交这段时间的数据
+* 外部kafka关闭事务，提交的数据可以正常消费了
+
+<img src="/api.png" style="zoom:60%;" />
+
+flink1.9开始，阿里开源，有了统一标准
+
+<img src="/api2.png" style="zoom:50%;" />
+
+<img src="/api3.png" style="zoom:50%;" />
