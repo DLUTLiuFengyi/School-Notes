@@ -181,6 +181,10 @@ parallelism.default
 * Dispatcher也会启动web ui
 * 在架构中不是必需
 
+任务调度、资源分配等图
+
+http://blog.itpub.net/69982513/viewspace-2714497/
+
 #### 任务调度
 
 原始代码 ->客户端解析成 logical graph -> 客户端（UI、命令行）发送给JM
