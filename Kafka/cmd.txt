@@ -1,0 +1,18 @@
+先在命令行启动zookeeper
+zkserver
+
+再在kafka文件夹中用shell启动kafka
+.\bin\windows\kafka-server-start.bat .\config\server.properties
+
+创建一个topic
+cd C:\kafka\kafka_2.12-2.1.1\bin\windows
+.\kafka-topics.bat --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic shopping
+打开一个Producer
+cd C:\kafka\kafka_2.12-2.1.1\bin\windows
+.\kafka-console-producer.bat --broker-list localhost:9092 --topic shopping
+打开一个Consumer
+cd C:\kafka\kafka_2.12-2.1.1\bin\windows
+.\kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic shopping --from-beginning
+
+查看topics
+.\kafka-topics.bat --bootstrap-server localhost:9092 --list

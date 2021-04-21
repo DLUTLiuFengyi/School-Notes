@@ -197,7 +197,7 @@ graph和jar包等提交给JM
 
 JM进行分析，判断当前并行度，每个任务有几个并行子任务，需要多少slot，分配
 
-JM向RM申请资源，RM向TM提出slot资源注册请求
+JM向RM申请资源，RM向TM提出slot资源注册请求（TM将自己可用的资源注册在RM上）
 
 TM的slots资源可以不完全用完，这与当前并行度（所需slots）有关
 
@@ -838,7 +838,7 @@ sum even左上角的蓝4是先缓存、尚未处理的数据，因此处理
 
       * 提交事务必须是幂等操作
 
-隔离级别：read committed
+隔离级别：read committed （第二级）（不提交即可读，提交了才可读，可重复度，可串行化）
 
 **Exactly-once 两阶段提交**
 
