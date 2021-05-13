@@ -15,8 +15,6 @@
 
 `git push origin 本地分支名:远程分支名`   
 
-
-
 ### 获取远程分支的更新
 
 #### 方法1
@@ -29,16 +27,12 @@
 ##### [在要接受更新的本地分支下]
 `git pull origin 远程分支名`
 
-
-
 ### 删除本地或远程分支
 
 `git checkout master`
 `git branch -d 本地分支名`
 `git push origin -d 远程分支名`
 把-d改成-D是强制删除
-
-
 
 ### 版本回滚
 
@@ -59,14 +53,10 @@
 
 `git push -f origin 本地分支名:远程分支名`
 
-
-
 ### 查看本地或远程分支
 `git branch`   查看本地分支
 `git branch -r`   查看远程分支
 `git branch -a`   查看本地和远程分支
-
-
 
 ### 用远程分支创建本地分支
 #### 方法1
@@ -84,8 +74,6 @@
 根据远程内容和本地分支名新建本地分支
 
 `git fetch origin 本地分支名:远程分支名`  
-
-
 
 ### 本地分支合并到远程分支
 
@@ -115,8 +103,6 @@
 
   `git push`
 
-
-
 ### 本地有更新但想撤销
 
 #### 方法1
@@ -128,3 +114,14 @@
 #### 方法2
 
 `git restore .`   全部撤销
+
+### 常见问题
+
+#### OpenSSL SSL_read
+
+fatal: unable to access 'https://github.com/xxx/xxx.git/': OpenSSL SSL_read: Connection was reset
+
+**解决方法**
+
+`git config --global http.sslBackend "openssl"`
+
