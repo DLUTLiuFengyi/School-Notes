@@ -1,0 +1,35 @@
+Executing the following command on all worker nodes and logging to /home/lfy/alluxio-2.4.0/logs/task.log: /home/lfy/alluxio-2.4.0/bin/alluxio-mount.sh Mount
+[amax8] Connecting as lfy...
+[amax9] Connecting as lfy...
+[2021-05-27 15:07:57][amax9] nohup: ignoring input
+[2021-05-27 15:07:57][amax8] nohup: ignoring input
+[2021-05-27 15:07:59][amax8] Formatting RamFS: /home/lfy/alluxio-ramdisk (34359738368)
+[2021-05-27 15:07:59][amax8] mount: only root can use "--options" option
+[2021-05-27 15:07:59][amax8] ERROR: mount RamFS /home/lfy/alluxio-ramdisk failed
+[2021-05-27 15:07:59][amax8] Connection to amax8 closed.
+[2021-05-27 15:07:59][amax9] Formatting RamFS: /home/lfy/alluxio-ramdisk (34359738368)
+[2021-05-27 15:07:59][amax9] mount: only root can use "--options" option
+[2021-05-27 15:07:59][amax9] ERROR: mount RamFS /home/lfy/alluxio-ramdisk failed
+[2021-05-27 15:07:59][amax9] Connection to amax9 closed.
+Executing the following command on all worker nodes and logging to /home/lfy/alluxio-2.4.0/logs/task.log: /home/lfy/alluxio-2.4.0/bin/alluxio formatWorker
+[amax8] Connecting as lfy...
+[amax9] Connecting as lfy...
+[2021-05-27 15:18:31][amax9] nohup: ignoring input
+[2021-05-27 15:18:31][amax8] nohup: ignoring input
+[2021-05-27 15:18:31][amax9] Formatting Alluxio Worker @ amax9
+[2021-05-27 15:18:31][amax8] Formatting Alluxio Worker @ amax8
+[2021-05-27 15:18:32][amax8] 2021-05-27 15:18:32,032 INFO  Format - Formatting worker data folder: /alluxioworker/
+[2021-05-27 15:18:32][amax8] 2021-05-27 15:18:32,033 INFO  Format - Formatting Data path for tier 0:/home/lfy/alluxio-ramdisk/alluxioworker
+[2021-05-27 15:18:32][amax9] 2021-05-27 15:18:32,409 INFO  Format - Formatting worker data folder: /alluxioworker/
+[2021-05-27 15:18:32][amax9] 2021-05-27 15:18:32,410 INFO  Format - Formatting Data path for tier 0:/home/lfy/alluxio-ramdisk/alluxioworker
+[2021-05-27 15:18:32][amax8] 2021-05-27 15:18:32,139 INFO  Format - Formatting complete
+[2021-05-27 15:18:32][amax8] Connection to amax8 closed.
+[2021-05-27 15:18:32][amax9] 2021-05-27 15:18:32,527 INFO  Format - Formatting complete
+[2021-05-27 15:18:32][amax9] Connection to amax9 closed.
+Executing the following command on all master nodes and logging to /home/lfy/alluxio-2.4.0/logs/task.log: /home/lfy/alluxio-2.4.0/bin/alluxio formatJournal
+[amax7] Connecting as lfy...
+[2021-05-27 15:18:33][amax7] nohup: ignoring input
+[2021-05-27 15:18:34][amax7] Formatting Alluxio Master @ amax7
+[2021-05-27 15:18:35][amax7] 2021-05-27 15:18:35,560 INFO  Format - Formatting master journal: /home/lfy/alluxio-2.4.0/journal/
+[2021-05-27 15:18:35][amax7] 2021-05-27 15:18:35,592 INFO  Format - Formatting complete
+[2021-05-27 15:18:35][amax7] Connection to amax7 closed.

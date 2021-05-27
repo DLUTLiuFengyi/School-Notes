@@ -1,0 +1,17 @@
+https://blog.csdn.net/weixin_44198965/article/details/89603788
+
+https://www.cnblogs.com/guodavid/p/11004499.html
+
+HDFS_NAMENODE_USER=lfy 
+HDFS_DATANODE_USER=lfy
+HDFS_SECONDARYNAMENODE_USER=lfy
+YARN_NODEMANAGER_USER=lfy
+YARN_RESOURCEMANAGER_USER=lfy
+
+dfs.datanode.address，datanode，控制端口，50010，hdfs -site.xml，0.0.0.0:50010，新版是9866，我改成19866
+dfs.datanode.http.address，datanode的HTTP服务器和端口，50075，hdfs-site.xml，0.0.0.0:50075，新版是9864，我改成19864
+dfs.datanode.ipc.address，datanode的RPC服务器地址和端口，50020，hdfs-site.xml，0.0.0.0:50020，新版是9867，我改成19867
+dfs.http.address，NameNode web管理端口，50070，hdfs- site.xml，0.0.0.0:50070，新版是9870，我改成19870
+
+hdfs web 19870
+yarn web 18093
