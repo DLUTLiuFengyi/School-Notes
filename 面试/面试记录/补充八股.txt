@@ -1,0 +1,7 @@
+cas乐观锁怎么实现的
+volatile，syn再仔细看看
+spring的注解怎么实现的
+mysql怎么新建一个索引
+进程间通信方式 线程间通信方式
+Class.forName和Classloder.loaderClass区别
+Class.forName得到的class是已经初始化完成的，有些情况是只需要知道这个类的存在而不需要初始化的情况使用Classloder.loaderClass，而有些时候又必须执行初始化就选择Class.forName，例如：数据库驱动加载就是使用Class.froName(“com.mysql.jdbc.Driver”),Classloder.loaderClass得到的class是还没有链接的，从Driver的源码中我们可以看出Driver这个类只有一个static块，这样我们需要初始化后才能得到DriverManager,所以我们选择使用Class.forName()。
